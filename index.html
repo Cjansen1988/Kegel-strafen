@@ -171,6 +171,32 @@
   .tanne-progress { text-align: center; font-size: 12px; color: #888; margin-top: 8px; }
   .tanne-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
   .tanne-players-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f0ede8; }
+
+  /* 2x Abräumen */
+  .abr-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .abr-team-box { border-radius: 10px; padding: 14px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative; }
+  .abr-team-box.t1 { background: #dceeff; border: 1.5px solid #aaccee; }
+  .abr-team-box.t2 { background: #ffdddd; border: 1.5px solid #eeaaaa; }
+  .abr-team-box.done-box { opacity: 0.7; }
+  .abr-team-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .abr-team-box.t1 .abr-team-name { color: #1a6bc0; }
+  .abr-team-box.t2 .abr-team-name { color: #c01a1a; }
+  .abr-throws { display: flex; align-items: center; gap: 10px; }
+  .abr-throw-num { font-size: 36px; font-weight: 800; line-height: 1; min-width: 48px; text-align: center; color: #1a1a1a; }
+  .abr-throw-label { font-size: 11px; color: #888; text-align: center; margin-top: 2px; }
+  .abr-btn-throw { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #1a1a1a; background: #1a1a1a; color: #fff; font-size: 26px; font-weight: 300; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .abr-btn-throw:active { transform: scale(0.92); background: #333; }
+  .abr-btn-throw.minus { background: transparent; color: #888; border-color: #bbb; font-size: 22px; }
+  .abr-btn-throw.minus:active { background: #f0ede8; }
+  .abr-milestone-btns { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .abr-milestone { width: 100%; padding: 10px 8px; border-radius: 8px; border: 1.5px solid; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.1s; }
+  .abr-milestone:active { transform: scale(0.97); }
+  .abr-milestone.first-inactive { background: transparent; color: #888; border-color: #ccc; }
+  .abr-milestone.first-done { background: #fff3cd; color: #856404; border-color: #ffc107; }
+  .abr-milestone.second-inactive { background: transparent; color: #888; border-color: #ccc; }
+  .abr-milestone.second-done { background: #d4edda; color: #155724; border-color: #28a745; }
+  .abr-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
+  .abr-crown { font-size: 20px; display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -260,6 +286,15 @@ let state = {
     team2: [],
     tree1: new Array(25).fill(false),
     tree2: new Array(25).fill(false),
+  },
+  abräumen: {
+    open: false,
+    team1: [],
+    team2: [],
+    teams: [
+      { throws: 0, first: false, done: false },
+      { throws: 0, first: false, done: false },
+    ],
   },
   strafen: {
     allgemein: [
@@ -461,6 +496,7 @@ function renderSpiele() {
     </div>`;
   });
   html += renderTannenbaumCard();
+  html += renderAbraeumenCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -590,6 +626,143 @@ function autoSplitTeams() {
   const half = Math.ceil(shuffled.length / 2);
   state.tannenbaum.team1 = shuffled.slice(0, half);
   state.tannenbaum.team2 = shuffled.slice(half);
+  renderSpiele();
+}
+
+// ── 2x Abräumen ─────────────────────────────────────────────
+function renderAbraeumenCard() {
+  const ab = state.abräumen;
+  const t1 = ab.teams[0], t2 = ab.teams[1];
+  const bothDone = t1.done && t2.done;
+  const anyDone = t1.done || t2.done;
+
+  let metaLabel = 'Spieler noch nicht eingeteilt';
+  if (ab.team1.length || ab.team2.length) {
+    metaLabel = `Team 1: ${ab.team1.length} · Team 2: ${ab.team2.length} Spieler`;
+  }
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleAbr()">
+      <div>
+        <div class="spiel-title">2x Abräumen</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${ab.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${ab.open?' open':''}">`;
+
+  // Team assignment (same pattern as Tannenbaum)
+  html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
+  html += `<div class="tanne-teams">
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      ${ab.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="abrAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      ${ab.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+  </div>`;
+
+  const unassigned = state.spieler.filter(s => !ab.team1.includes(s) && !ab.team2.includes(s));
+  if (unassigned.length > 0) {
+    html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
+      <div class="tanne-players-row">
+        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ T1</span></div>`).join('')}
+      </div>`;
+  }
+
+  // The two team boxes
+  html += `<div class="abr-teams">`;
+  [0, 1].forEach(i => {
+    const t = ab.teams[i];
+    const cls = i === 0 ? 't1' : 't2';
+    const label = i === 0 ? 'Team 1' : 'Team 2';
+    html += `<div class="abr-team-box ${cls}${t.done?' done-box':''}">
+      <div class="abr-team-name">${label}</div>
+      <div style="text-align:center;">
+        <div class="abr-throws">
+          <button class="abr-btn-throw minus" onclick="abrThrow(${i},-1)">−</button>
+          <div>
+            <div class="abr-throw-num">${t.throws}</div>
+            <div class="abr-throw-label">Würfe</div>
+          </div>
+          <button class="abr-btn-throw" onclick="abrThrow(${i},1)">+</button>
+        </div>
+      </div>
+      <div class="abr-milestone-btns">
+        <button class="abr-milestone ${t.first?'first-done':'first-inactive'}" onclick="abrMilestone(${i},'first')">
+          ${t.first ? '1x abgeräumt ✓' : '1x abgeräumt'}
+        </button>
+        <button class="abr-milestone ${t.done?'second-done':'second-inactive'}" onclick="abrMilestone(${i},'done')" ${!t.first&&!t.done?'style="opacity:0.5;"':''}>
+          ${t.done ? '2x abgeräumt ✓' : '2x abgeräumt'}
+        </button>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Winner banner
+  if (anyDone) {
+    let winText = '';
+    if (bothDone) {
+      if (t1.throws === t2.throws) winText = 'Unentschieden!';
+      else winText = (t1.throws < t2.throws ? 'Team 1' : 'Team 2') + ' gewinnt mit weniger Würfen!';
+    } else {
+      winText = (t1.done ? 'Team 1' : 'Team 2') + ' hat zuerst 2x abgeräumt!';
+    }
+    html += `<div class="abr-winner-banner">${winText}</div>`;
+  }
+
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="resetAbr()" style="flex:1;">Zurücksetzen</button>
+    <button class="btn" onclick="autoSplitAbr()" style="flex:1;">Zufällig aufteilen</button>
+  </div>`;
+
+  html += '</div></div>';
+  return html;
+}
+
+function toggleAbr() {
+  state.abräumen.open = !state.abräumen.open;
+  renderSpiele();
+}
+function abrAssign(s, toTeam) {
+  const ab = state.abräumen;
+  ab.team1 = ab.team1.filter(p => p !== s);
+  ab.team2 = ab.team2.filter(p => p !== s);
+  if (toTeam === 1) ab.team1.push(s);
+  else ab.team2.push(s);
+  renderSpiele();
+}
+function abrThrow(i, d) {
+  state.abräumen.teams[i].throws = Math.max(0, state.abräumen.teams[i].throws + d);
+  if (navigator.vibrate) navigator.vibrate(15);
+  renderSpiele();
+}
+function abrMilestone(i, which) {
+  const t = state.abräumen.teams[i];
+  if (which === 'first') {
+    t.first = !t.first;
+    if (!t.first) t.done = false;
+  } else {
+    if (!t.first) return;
+    t.done = !t.done;
+  }
+  renderSpiele();
+}
+function resetAbr() {
+  state.abräumen.teams = [
+    { throws: 0, first: false, done: false },
+    { throws: 0, first: false, done: false },
+  ];
+  renderSpiele();
+}
+function autoSplitAbr() {
+  const shuffled = [...state.spieler].sort(() => Math.random() - 0.5);
+  const half = Math.ceil(shuffled.length / 2);
+  state.abräumen.team1 = shuffled.slice(0, half);
+  state.abräumen.team2 = shuffled.slice(half);
   renderSpiele();
 }
 
