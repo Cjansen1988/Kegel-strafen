@@ -242,6 +242,36 @@
   .b100-num-btn.disabled { opacity: 0.35; pointer-events: none; }
   .b100-reset-msg { font-size: 12px; font-weight: 700; color: #c0392b; text-align: center; padding: 4px 0; min-height: 20px; }
   .b100-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
+
+  /* Blackjack */
+  .bj-player-section { border-bottom: 1px solid #f0ede8; padding: 12px 0; }
+  .bj-player-section:last-child { border-bottom: none; padding-bottom: 4px; }
+  .bj-player-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bj-player-name { flex: 1; font-size: 14px; font-weight: 600; }
+  .bj-total { font-size: 28px; font-weight: 800; line-height: 1; color: #1a1a1a; min-width: 40px; text-align: right; }
+  .bj-total.bust { color: #c0392b; }
+  .bj-total.win { color: #27ae60; }
+  .bj-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+  .bj-status.playing { background: #e8f0ff; color: #1a6bc0; }
+  .bj-status.done-st { background: #e8f5e9; color: #2e7d32; }
+  .bj-status.bust { background: #ffebee; color: #c0392b; }
+  .bj-status.win21 { background: #fff3cd; color: #856404; }
+  .bj-card-picker { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .bj-card-btn { min-width: 40px; height: 44px; border-radius: 8px; border: 1.5px solid #d0cdc5; background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 2px 6px; gap: 1px; }
+  .bj-card-btn:active { background: #f0ede8; }
+  .bj-card-btn.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .bj-card-btn.selected:active { background: #333; }
+  .bj-card-sub { font-size: 9px; font-weight: 500; opacity: 0.65; }
+  .bj-numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0 5px; }
+  .bj-num-btn { height: 42px; border-radius: 8px; border: 1.5px solid #d0cdc5; background: #fff; font-size: 16px; font-weight: 700; cursor: pointer; color: #1a1a1a; }
+  .bj-num-btn:active { background: #e8e5de; transform: scale(0.94); }
+  .bj-throws-history { font-size: 11px; color: #aaa; text-align: center; padding: 3px 0; letter-spacing: 0.02em; }
+  .bj-result-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; }
+  .bj-result-row.bust-row { background: #fff0f0; }
+  .bj-result-row.win-row { background: #f0fff4; }
+  .bj-result-row.extra-loser { background: #fff5e5; }
+  .bj-result-label { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .bj-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -353,6 +383,12 @@ let state = {
       { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
       { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
     ],
+  },
+  blackjack: {
+    open: false,
+    loserCount: 1,
+    showResult: false,
+    players: {},
   },
   strafen: {
     allgemein: [
@@ -629,6 +665,7 @@ function renderSpiele() {
   html += renderTannenbaumCard();
   html += renderAbraeumenCard();
   html += renderBis100Card();
+  html += renderBlackjackCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -1047,6 +1084,226 @@ function autoSplitBis100() {
   const half = Math.ceil(shuffled.length / 2);
   state.bis100.team1 = shuffled.slice(0, half);
   state.bis100.team2 = shuffled.slice(half);
+  renderSpiele();
+}
+
+// ── Blackjack ─────────────────────────────────────────────────
+const BJ_CARDS = [
+  { id: '7',      label: '7',  sub: '',    val: 7  },
+  { id: '8',      label: '8',  sub: '',    val: 8  },
+  { id: '9',      label: '9',  sub: '',    val: 9  },
+  { id: '10',     label: '10', sub: '',    val: 10 },
+  { id: 'bube',   label: 'B',  sub: '= 2', val: 2  },
+  { id: 'dame',   label: 'D',  sub: '= 3', val: 3  },
+  { id: 'koenig', label: 'K',  sub: '= 4', val: 4  },
+  { id: 'ass1',   label: 'A',  sub: '= 1', val: 1  },
+  { id: 'ass11',  label: 'A',  sub: '=11', val: 11 },
+];
+
+function bjInitPlayer(s) {
+  if (!state.blackjack.players[s]) {
+    state.blackjack.players[s] = { cardId: null, cardVal: 0, throws: [], total: 0, busted: false, won: false, done: false };
+  }
+}
+
+function renderBlackjackCard() {
+  const bj = state.blackjack;
+  const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
+  aktiveSpieler.forEach(s => bjInitPlayer(s));
+
+  const bustCount  = aktiveSpieler.filter(s => bj.players[s]?.busted).length;
+  const winCount   = aktiveSpieler.filter(s => bj.players[s]?.won).length;
+  const doneCount  = aktiveSpieler.filter(s => { const p = bj.players[s]; return p && (p.busted || p.won || p.done); }).length;
+  const metaLabel  = aktiveSpieler.length === 0 ? 'Keine Spieler' :
+    doneCount > 0 ? `${doneCount}/${aktiveSpieler.length} fertig · ${bustCount} überworfen · ${winCount}× 21` :
+    `${aktiveSpieler.length} Spieler`;
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleBlackjack()">
+      <div>
+        <div class="spiel-title">Blackjack</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${bj.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${bj.open?' open':''}">`;
+
+  // Loser count setting
+  html += `<div class="loser-count-row">
+    <span class="loser-count-label">Verlierer (außer Überworfene)</span>
+    <div class="stepper">
+      <button class="stepper-btn" onclick="bjChangeLoser(-1)">−</button>
+      <span class="stepper-val">${bj.loserCount}</span>
+      <button class="stepper-btn" onclick="bjChangeLoser(1)">+</button>
+    </div>
+  </div>`;
+
+  // Per-player sections
+  aktiveSpieler.forEach(s => {
+    const p = bj.players[s];
+    const cardSelected = p.cardId !== null;
+    const isActive = cardSelected && !p.busted && !p.won && !p.done;
+
+    let statusHtml = '', totalClass = '';
+    if (p.busted)      { statusHtml = `<span class="bj-status bust">ÜBER!</span>`;  totalClass = ' bust'; }
+    else if (p.won)    { statusHtml = `<span class="bj-status win21">21! ♠</span>`; totalClass = ' win';  }
+    else if (p.done)   { statusHtml = `<span class="bj-status done-st">Steht</span>`; }
+    else if (cardSelected) { statusHtml = `<span class="bj-status playing">Spielt</span>`; }
+
+    const totalDisplay = cardSelected ? p.total : '–';
+    let histParts = [];
+    if (cardSelected) {
+      const c = BJ_CARDS.find(c => c.id === p.cardId);
+      histParts.push(c ? `${c.label}${c.sub.replace(/\s/g,'')}` : '?');
+      p.throws.forEach(t => histParts.push(String(t)));
+    }
+    const histStr = histParts.length > 1 ? histParts.join(' + ') + ` = ${p.total}` :
+                    histParts.length === 1 ? `Karte: ${histParts[0]} = ${p.total}` : '';
+
+    html += `<div class="bj-player-section">
+      <div class="bj-player-header">
+        <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+        <span class="bj-player-name">${s.trim()}</span>
+        <span class="bj-total${totalClass}">${totalDisplay}</span>
+        ${statusHtml}
+      </div>
+      <div class="bj-card-picker">`;
+    BJ_CARDS.forEach(card => {
+      const sel = p.cardId === card.id;
+      html += `<button class="bj-card-btn${sel?' selected':''}" onclick="bjPickCard('${esc(s)}','${card.id}')">${card.label}<span class="bj-card-sub">${card.sub || card.val}</span></button>`;
+    });
+    html += `</div>`;
+
+    if (isActive) {
+      html += `<div class="bj-numpad">`;
+      for (let n = 1; n <= 10; n++) {
+        html += `<button class="bj-num-btn" onclick="bjThrow('${esc(s)}',${n})">${n}</button>`;
+      }
+      html += `</div>`;
+      html += `<button class="btn" style="width:100%;margin-top:2px;height:40px;" onclick="bjStehen('${esc(s)}')">Stehen — ${p.total} Punkte</button>`;
+    }
+    if (histStr) html += `<div class="bj-throws-history">${histStr}</div>`;
+    html += `</div>`;
+  });
+
+  // Result
+  if (bj.showResult) html += renderBJResult(aktiveSpieler);
+
+  // Bottom actions
+  const allDone = aktiveSpieler.length > 0 && aktiveSpieler.every(s => {
+    const p = bj.players[s]; return p && (p.busted || p.won || p.done);
+  });
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="bjReset()" style="flex:1;">Zurücksetzen</button>
+    ${allDone && !bj.showResult ? `<button class="btn btn-primary" onclick="bjAuswerten()" style="flex:1;">Auswerten</button>` : ''}
+  </div>`;
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderBJResult(spieler) {
+  const bj = state.blackjack;
+  const busted  = spieler.filter(s => bj.players[s]?.busted);
+  const won21   = spieler.filter(s => bj.players[s]?.won);
+  const others  = spieler
+    .filter(s => !bj.players[s]?.busted && !bj.players[s]?.won)
+    .sort((a, b) => (bj.players[b]?.total || 0) - (bj.players[a]?.total || 0));
+  const loserStart = Math.max(0, others.length - bj.loserCount);
+
+  let html = '<div class="result-list" style="margin-top:14px;">';
+
+  won21.forEach(s => {
+    html += `<div class="bj-result-row win-row">
+      <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+      <span style="flex:1;font-size:14px;font-weight:600;">${s.trim()}</span>
+      <span class="bj-result-label" style="background:#e8fde8;color:#27ae60;">Gewonnen!</span>
+      <span style="font-size:16px;font-weight:800;color:#27ae60;">21</span>
+    </div>`;
+  });
+
+  others.forEach((s, i) => {
+    const isLoser = i >= loserStart;
+    const score = bj.players[s]?.total || 0;
+    html += `<div class="bj-result-row${isLoser?' extra-loser':''}">
+      <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+      <span style="flex:1;font-size:14px;font-weight:600;">${s.trim()}</span>
+      ${isLoser ? `<span class="bj-result-label" style="background:#fde8e8;color:#c0392b;">Verlierer</span>` : ''}
+      <span style="font-size:16px;font-weight:700;">${score}</span>
+    </div>`;
+  });
+
+  busted.forEach(s => {
+    const score = bj.players[s]?.total || 0;
+    html += `<div class="bj-result-row bust-row">
+      <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+      <span style="flex:1;font-size:14px;font-weight:600;">${s.trim()}</span>
+      <span class="bj-result-label" style="background:#fde8e8;color:#c0392b;">Überworfen!</span>
+      <span style="font-size:16px;font-weight:700;color:#c0392b;">${score}</span>
+    </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function toggleBlackjack() {
+  state.blackjack.open = !state.blackjack.open;
+  renderSpiele();
+}
+function bjChangeLoser(d) {
+  state.blackjack.loserCount = Math.max(0, state.blackjack.loserCount + d);
+  renderSpiele();
+}
+function bjPickCard(s, cardId) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  const card = BJ_CARDS.find(c => c.id === cardId);
+  if (!card) return;
+  // Re-pick resets throws
+  p.cardId = cardId;
+  p.cardVal = card.val;
+  p.throws = [];
+  p.total = card.val;
+  p.busted = p.total > 21;
+  p.won = p.total === 21;
+  p.done = false;
+  state.blackjack.showResult = false;
+  if (navigator.vibrate) navigator.vibrate(15);
+  renderSpiele();
+}
+function bjThrow(s, n) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (!p.cardId || p.busted || p.won || p.done) return;
+  p.throws.push(n);
+  p.total += n;
+  if (p.total > 21) {
+    p.busted = true;
+    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+  } else if (p.total === 21) {
+    p.won = true;
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+  } else {
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+  renderSpiele();
+}
+function bjStehen(s) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (!p.cardId || p.busted || p.won) return;
+  p.done = true;
+  if (navigator.vibrate) navigator.vibrate(25);
+  renderSpiele();
+}
+function bjAuswerten() {
+  state.blackjack.showResult = true;
+  renderSpiele();
+}
+function bjReset() {
+  state.blackjack.players = {};
+  state.blackjack.showResult = false;
   renderSpiele();
 }
 
