@@ -361,7 +361,6 @@ let state = {
       {name:'Schnipsen', coins:0.5},
       {name:'Stuhl umwerfen', coins:2.0},
       {name:'Handy spielen', coins:5.0},
-      {name:'Stina', coins:0.5},
       {name:'Verspätung\n(pro 15 Min)', coins:2.0},
       {name:'Pumpenkegel\nvergessen', coins:5.0},
       {name:'Kegelshirt\nvergessen', coins:5.0},
@@ -371,6 +370,7 @@ let state = {
       {name:'Alle 9', coins:1.0},
       {name:'Klingel', coins:1.0},
       {name:'Behinderung', coins:0.5},
+      {name:'Stina', coins:0.5},
       {name:'Kugel\neinholen', coins:5.0},
       {name:'Kugel\nn. einholen', coins:0.5},
       {name:'Kugel\nz.T.', coins:1.0},
@@ -423,9 +423,10 @@ function renderTable(group) {
     const rowTotal = strafen.reduce((sum, st) => sum + getCount(s,group,st.name)*st.coins, 0);
     html += `<tr class="tr-player${da?'':' absent-row'}">`;
     html += `<td class="td-name"><div class="td-name-inner"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${s.trim()}</span><button class="da-toggle ${da?'is-da':'is-weg'}" onclick="toggleAnwesend('${esc(s)}')">${da?'da':'weg'}</button></div></td>`;
-    for (const st of strafen) {
+    for (let sti = 0; sti < strafen.length; sti++) {
+      const st = strafen[sti];
       const c = getCount(s, group, st.name);
-      html += `<td class="td-count" ontouchstart="startLong('${esc(s)}','${group}','${esc(st.name)}')" ontouchend="endLong()" ontouchmove="endLong()" onmousedown="startLong('${esc(s)}','${group}','${esc(st.name)}')" onmouseup="endLong()" onmouseleave="endLong()" onclick="tap('${esc(s)}','${group}','${esc(st.name)}')"><div class="count-inner"><span class="count-num${c===0?' zero':''}">${c===0?'·':c}</span></div></td>`;
+      html += `<td class="td-count" ontouchstart="startLong('${esc(s)}','${group}',${sti})" ontouchend="endLong()" ontouchmove="endLong()" onmousedown="startLong('${esc(s)}','${group}',${sti})" onmouseup="endLong()" onmouseleave="endLong()" onclick="tap('${esc(s)}','${group}',${sti})"><div class="count-inner"><span class="count-num${c===0?' zero':''}">${c===0?'·':c}</span></div></td>`;
     }
     html += `<td class="td-total"><div class="td-total-inner">${rowTotal>0?fmtEuro(rowTotal):'—'}</div></td>`;
     html += '</tr>';
@@ -545,20 +546,22 @@ function renderSummary() {
 let longTimer = null;
 let longFired = false;
 
-function startLong(s, g, st) {
+function startLong(s, g, sti) {
   longFired = false;
   longTimer = setTimeout(() => {
     longFired = true;
-    const k = key(s,g,st);
+    const stName = state.strafen[g][sti].name;
+    const k = key(s, g, stName);
     state.counts[k] = Math.max(0,(state.counts[k]||0)-1);
     renderAll();
     if (navigator.vibrate) navigator.vibrate(40);
   }, 500);
 }
 function endLong() { clearTimeout(longTimer); }
-function tap(s, g, st) {
+function tap(s, g, sti) {
   if (longFired) { longFired=false; return; }
-  const k = key(s,g,st);
+  const stName = state.strafen[g][sti].name;
+  const k = key(s, g, stName);
   state.counts[k] = (state.counts[k]||0)+1;
   renderAll();
   if (navigator.vibrate) navigator.vibrate(15);
