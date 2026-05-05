@@ -274,6 +274,35 @@
   .bj-result-row.extra-loser { background: #fff5e5; }
   .bj-result-label { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
   .bj-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
+
+  /* Hausnummer 3-digit */
+  .hn-legend { font-size: 11px; color: #888; margin-bottom: 12px; padding: 8px 10px; background: #f5f4f0; border-radius: 8px; }
+  .hn-inputs { display: flex; align-items: center; gap: 5px; }
+  .hn-digit { width: 42px; height: 44px; border-radius: 8px; border: 1.5px solid #d0cdc5; text-align: center; font-size: 20px; font-weight: 800; background: #fff; color: #1a1a1a; -moz-appearance: textfield; }
+  .hn-digit::-webkit-outer-spin-button, .hn-digit::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .hn-digit:focus { outline: none; border-color: #1a1a1a; }
+  .hn-sep { font-size: 18px; font-weight: 300; color: #ccc; }
+  .hn-result { font-size: 18px; font-weight: 800; color: #1a5c2a; min-width: 44px; margin-left: 4px; }
+
+  /* Tag-Nacht */
+  .tn-player-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f0ede8; }
+  .tn-player-row:last-of-type { border-bottom: none; }
+  .tn-player-info { display: flex; align-items: center; gap: 8px; width: 90px; flex-shrink: 0; padding-top: 4px; }
+  .tn-player-name { font-size: 12px; font-weight: 600; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tn-inputs { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .tn-group { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .tn-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; width: 22px; flex-shrink: 0; }
+  .tn-group-label.day  { color: #c8860a; }
+  .tn-group-label.night { color: #1a1a6a; }
+  .tn-inp { width: 48px; height: 38px; border-radius: 7px; border: 1.5px solid #d0cdc5; text-align: center; font-size: 15px; font-weight: 700; background: #fff; color: #1a1a1a; -moz-appearance: textfield; }
+  .tn-inp::-webkit-outer-spin-button, .tn-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .tn-inp:focus { outline: none; border-color: #888; }
+  .tn-inp.night { background: #1a1a3a; color: #fff; border-color: #1a1a3a; }
+  .tn-inp.night3 { background: #000; color: #ffd700; border-color: #000; }
+  .tn-mult { font-size: 10px; color: #aaa; font-weight: 600; }
+  .tn-total-col { width: 52px; flex-shrink: 0; text-align: right; padding-top: 8px; }
+  .tn-total-val { font-size: 22px; font-weight: 800; color: #1a1a1a; line-height: 1; }
+  .tn-total-label { font-size: 10px; color: #aaa; }
 </style>
 </head>
 <body>
@@ -358,8 +387,8 @@ let state = {
   spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
   anwesend: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
   spiele: [
-    { id: 'hohe-hausnummer', name: 'Hohe Hausnummer', mode: 'tief', loserCount: 3, scores: {}, showResult: false },
-    { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'hoch', loserCount: 3, scores: {}, showResult: false },
+    { id: 'hohe-hausnummer',  name: 'Hohe Hausnummer',  mode: 'hoch', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false },
+    { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'tief', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false },
   ],
   tannenbaum: {
     open: false,
@@ -391,6 +420,12 @@ let state = {
     loserCount: 1,
     showResult: false,
     players: {},
+  },
+  tagnacht: {
+    open: false,
+    loserCount: 1,
+    showResult: false,
+    scores: {},   // { playerName: { tag1:'', tag2:'', tag3:'', nacht1:'', nacht2:'', nacht3:'' } }
   },
   strafen: {
     allgemein: [
@@ -629,9 +664,13 @@ function renderSpiele() {
   const c = document.getElementById('spiele-content');
   let html = '';
   state.spiele.forEach((g, gi) => {
-    const modeLabel = g.mode === 'tief' ? 'Niedrigste Zahl verliert' : 'Höchste Zahl verliert';
+    const modeLabel = g.mode === 'hoch' ? 'Niedrigste Zahl verliert' : 'Höchste Zahl verliert';
     const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
-    const allFilled = aktiveSpieler.length > 0 && aktiveSpieler.every(s => g.scores[s] !== undefined && g.scores[s] !== '');
+    const isHN = g.type === 'hausnummer';
+    const allFilled = aktiveSpieler.length > 0 && aktiveSpieler.every(s => {
+      if (isHN) { const sc = g.scores[s]||{}; return sc.h && sc.z && sc.e; }
+      return g.scores[s] !== undefined && g.scores[s] !== '';
+    });
     html += `<div class="spiel-card">
       <div class="spiel-header" onclick="toggleSpiel(${gi})">
         <div>
@@ -649,7 +688,23 @@ function renderSpiele() {
             <button class="stepper-btn" onclick="changeLoser(${gi},1)">+</button>
           </div>
         </div>
+        ${isHN ? '<div class="hn-legend">Hundert &nbsp;·&nbsp; Zehn &nbsp;·&nbsp; Einer &nbsp;→&nbsp; z.B. 3 · 7 · 9 = <strong>379</strong></div>' : ''}
         ${aktiveSpieler.map(s => {
+          if (isHN) {
+            const sc = g.scores[s] || {};
+            const num = (sc.h && sc.z && sc.e) ? `${sc.h}${sc.z}${sc.e}` : '';
+            return `<div class="score-row">
+              <div class="score-name"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div>
+              <div class="hn-inputs">
+                <input class="hn-digit" type="number" inputmode="numeric" min="1" max="9" placeholder="H" value="${sc.h||''}" oninput="setHNScore(${gi},'${esc(s)}','h',this.value)">
+                <span class="hn-sep">·</span>
+                <input class="hn-digit" type="number" inputmode="numeric" min="1" max="9" placeholder="Z" value="${sc.z||''}" oninput="setHNScore(${gi},'${esc(s)}','z',this.value)">
+                <span class="hn-sep">·</span>
+                <input class="hn-digit" type="number" inputmode="numeric" min="1" max="9" placeholder="E" value="${sc.e||''}" oninput="setHNScore(${gi},'${esc(s)}','e',this.value)">
+                <span class="hn-result">${num ? '= ' + num : ''}</span>
+              </div>
+            </div>`;
+          }
           const val = g.scores[s] !== undefined ? g.scores[s] : '';
           return `<div class="score-row">
             <div class="score-name"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div>
@@ -668,6 +723,7 @@ function renderSpiele() {
   html += renderAbraeumenCard();
   html += renderBis100Card();
   html += renderBlackjackCard();
+  html += renderTagNachtCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -1398,10 +1454,170 @@ function bjReset() {
   renderSpiele();
 }
 
+// ── Tag-Nacht ─────────────────────────────────────────────────
+const TN_ROUNDS = [
+  { id: 'tag1',   label: 'Tag 1',   emoji: '☀️', group: 'day',   mult: 1 },
+  { id: 'tag2',   label: 'Tag 2',   emoji: '☀️', group: 'day',   mult: 1 },
+  { id: 'tag3',   label: 'Tag 3',   emoji: '☀️', group: 'day',   mult: 1 },
+  { id: 'nacht1', label: 'Nacht 1', emoji: '🌙', group: 'night',  mult: 2 },
+  { id: 'nacht2', label: 'Nacht 2', emoji: '🌙', group: 'night',  mult: 2 },
+  { id: 'nacht3', label: 'N.d.N.',  emoji: '🌑', group: 'night3', mult: 3 },
+];
+
+function tnTotal(s) {
+  const sc = state.tagnacht.scores[s] || {};
+  return TN_ROUNDS.reduce((sum, r) => sum + (parseFloat(sc[r.id]) || 0) * r.mult, 0);
+}
+
+function renderTagNachtCard() {
+  const tn = state.tagnacht;
+  const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
+
+  // Count how many have at least one score entered
+  const startedCount = aktiveSpieler.filter(s =>
+    TN_ROUNDS.some(r => (tn.scores[s]||{})[r.id] !== '' && (tn.scores[s]||{})[r.id] !== undefined)
+  ).length;
+  const metaLabel = startedCount > 0
+    ? `${startedCount}/${aktiveSpieler.length} Spieler eingetragen`
+    : `${aktiveSpieler.length} Spieler · 3 Tage × 3 Nächte`;
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleTagNacht()">
+      <div>
+        <div class="spiel-title">Tag-Nacht</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${tn.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${tn.open?' open':''}">`;
+
+  // Loser count
+  html += `<div class="loser-count-row">
+    <span class="loser-count-label">Anzahl Verlierer</span>
+    <div class="stepper">
+      <button class="stepper-btn" onclick="tnChangeLoser(-1)">−</button>
+      <span class="stepper-val">${tn.loserCount}</span>
+      <button class="stepper-btn" onclick="tnChangeLoser(1)">+</button>
+    </div>
+  </div>`;
+
+  // Legend row
+  html += `<div style="display:flex;gap:12px;font-size:11px;color:#888;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0ede8;">
+    <span>☀️ Tag = ×1</span>
+    <span>🌙 Nacht = ×2</span>
+    <span>🌑 Nacht der Nächte = ×3</span>
+  </div>`;
+
+  // Player rows
+  aktiveSpieler.forEach(s => {
+    if (!tn.scores[s]) tn.scores[s] = {};
+    const sc = tn.scores[s];
+    const total = tnTotal(s);
+    const anyFilled = TN_ROUNDS.some(r => sc[r.id] !== '' && sc[r.id] !== undefined);
+
+    html += `<div class="tn-player-row">
+      <div class="tn-player-info">
+        <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+        <span class="tn-player-name">${s.trim()}</span>
+      </div>
+      <div class="tn-inputs">
+        <div class="tn-group">
+          <span class="tn-group-label day">☀️</span>`;
+    ['tag1','tag2','tag3'].forEach((id, i) => {
+      html += `<input class="tn-inp" type="number" inputmode="numeric" min="0" max="9" placeholder="${i+1}" value="${sc[id]??''}" oninput="tnSet('${esc(s)}','${id}',this.value)">`;
+    });
+    html += `<span class="tn-mult">×1</span></div>
+        <div class="tn-group">
+          <span class="tn-group-label night">🌙</span>`;
+    ['nacht1','nacht2'].forEach((id, i) => {
+      html += `<input class="tn-inp night" type="number" inputmode="numeric" min="0" max="9" placeholder="${i+1}" value="${sc[id]??''}" oninput="tnSet('${esc(s)}','${id}',this.value)">`;
+    });
+    html += `<span class="tn-mult" style="color:#666;">×2</span>
+          <span class="tn-group-label night" style="margin-left:6px;">🌑</span>
+          <input class="tn-inp night3" type="number" inputmode="numeric" min="0" max="9" placeholder="N" value="${sc['nacht3']??''}" oninput="tnSet('${esc(s)}','nacht3',this.value)">
+          <span class="tn-mult" style="color:#666;">×3</span>
+        </div>
+      </div>
+      <div class="tn-total-col">
+        <div class="tn-total-val">${anyFilled ? total : '–'}</div>
+        <div class="tn-total-label">Punkte</div>
+      </div>
+    </div>`;
+  });
+
+  // Result
+  if (tn.showResult) html += renderTNResult(aktiveSpieler);
+
+  // Actions
+  const anyData = aktiveSpieler.some(s => TN_ROUNDS.some(r => (tn.scores[s]||{})[r.id] !== '' && (tn.scores[s]||{})[r.id] !== undefined));
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="tnReset()" style="flex:1;">Zurücksetzen</button>
+    ${anyData ? `<button class="btn btn-primary" onclick="tnAuswerten()" style="flex:1;">Auswerten</button>` : ''}
+  </div>`;
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderTNResult(spieler) {
+  const tn = state.tagnacht;
+  const ranked = spieler
+    .map(s => ({ name: s, total: tnTotal(s) }))
+    .sort((a, b) => b.total - a.total); // highest first = best
+  const loserStart = Math.max(0, ranked.length - tn.loserCount);
+  let html = '<div class="result-list" style="margin-top:14px;">';
+  ranked.forEach((p, i) => {
+    const isLoser = i >= loserStart;
+    const isTop = i === 0;
+    html += `<div class="result-row${isLoser?' loser':isTop?' top':''}">
+      <span class="result-rank">${i+1}.</span>
+      <div class="avatar" style="background:${avatarColor(p.name)};width:24px;height:24px;font-size:9px;flex-shrink:0;">${initials(p.name)}</div>
+      <span class="result-name">${p.name.trim()}</span>
+      ${isLoser ? '<span class="loser-badge">Verlierer</span>' : isTop ? '<span class="winner-tag">1. Platz</span>' : ''}
+      <span class="result-score">${p.total}</span>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function toggleTagNacht() {
+  state.tagnacht.open = !state.tagnacht.open;
+  renderSpiele();
+}
+function tnChangeLoser(d) {
+  state.tagnacht.loserCount = Math.max(1, state.tagnacht.loserCount + d);
+  renderSpiele();
+}
+function tnSet(s, roundId, val) {
+  if (!state.tagnacht.scores[s]) state.tagnacht.scores[s] = {};
+  state.tagnacht.scores[s][roundId] = val;
+  state.tagnacht.showResult = false;
+  renderSpiele();
+}
+function tnAuswerten() {
+  state.tagnacht.showResult = true;
+  renderSpiele();
+}
+function tnReset() {
+  state.tagnacht.scores = {};
+  state.tagnacht.showResult = false;
+  renderSpiele();
+}
+
+function getSpielScore(g, s) {
+  if (g.type === 'hausnummer') {
+    const sc = g.scores[s] || {};
+    if (!sc.h || !sc.z || !sc.e) return null;
+    return parseInt(`${sc.h}${sc.z}${sc.e}`);
+  }
+  const v = parseFloat(g.scores[s]);
+  return isNaN(v) ? null : v;
+}
 function renderResult(g) {
   const ranked = state.spieler
-    .filter(s => state.anwesend.includes(s) && g.scores[s] !== undefined && g.scores[s] !== '')
-    .map(s => ({ name: s, score: parseFloat(g.scores[s]) }))
+    .filter(s => state.anwesend.includes(s) && getSpielScore(g, s) !== null)
+    .map(s => ({ name: s, score: getSpielScore(g, s) }))
     .sort((a, b) => g.mode === 'tief' ? a.score - b.score : b.score - a.score);
   const n = Math.min(g.loserCount, ranked.length);
   let html = '<div class="result-list">';
@@ -1426,6 +1642,14 @@ function toggleSpiel(gi) {
 function changeLoser(gi, d) {
   const g = state.spiele[gi];
   g.loserCount = Math.max(1, Math.min(state.spieler.length - 1, g.loserCount + d));
+  renderSpiele();
+}
+function setHNScore(gi, s, pos, val) {
+  const v = parseInt(val);
+  if (!state.spiele[gi].scores[s]) state.spiele[gi].scores[s] = {};
+  // clamp to 1–9, or clear if empty
+  state.spiele[gi].scores[s][pos] = (val === '' || isNaN(v)) ? '' : Math.min(9, Math.max(1, v));
+  state.spiele[gi].showResult = false;
   renderSpiele();
 }
 function setScore(gi, s, val) {
