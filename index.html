@@ -63,6 +63,11 @@
   .tr-player:nth-child(even) .td-count { background: transparent; }
   .tr-player:nth-child(even) .td-count:active { background: #e8f4ff; }
   .tr-player:nth-child(even) .td-total { background: #f5f4f0; }
+  .tr-player.absent-row { opacity: 0.38; }
+  .tr-player.absent-row .td-count { pointer-events: none; }
+  .da-toggle { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; border: 1px solid; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .da-toggle.is-da { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+  .da-toggle.is-weg { background: #f5f5f5; color: #bbb; border-color: #ddd; }
 
   .tr-sum .td-name { background: #f0ede8; font-size: 12px; color: #888; font-weight: 600; }
   .tr-sum td { background: #f0ede8; border-top: 2px solid #d0cdc5; }
@@ -75,16 +80,31 @@
 
   .summary-page { padding: 16px 12px 80px; }
   .summary-card { background: #fff; border-radius: 10px; border: 1px solid #e0ddd5; overflow: hidden; margin-bottom: 12px; }
-  .summary-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f0ede8; gap: 12px; }
+  .summary-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #f0ede8; gap: 10px; }
   .summary-row:last-child { border-bottom: none; }
-  .summary-name { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 15px; }
+  .summary-row.absent { opacity: 0.45; }
+  .summary-name { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 15px; flex: 1; min-width: 0; }
   .summary-detail { font-size: 12px; color: #999; margin-top: 2px; }
-  .summary-amount { font-size: 18px; font-weight: 600; }
+  .summary-amount { font-size: 17px; font-weight: 600; white-space: nowrap; }
   .summary-amount.zero { color: #ccc; }
+  .summary-amount-sub { font-size: 11px; color: #888; font-weight: 400; display: block; text-align: right; margin-top: 1px; }
   .badge { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: #fff3cd; color: #856404; font-weight: 600; }
+  .anwesend-toggle { flex-shrink: 0; padding: 4px 9px; border-radius: 20px; border: 1px solid; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .anwesend-toggle.da { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+  .anwesend-toggle.weg { background: #f5f5f5; color: #aaa; border-color: #ddd; }
   .total-card { background: #1a1a1a; color: #fff; border-radius: 10px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .total-label { font-size: 13px; opacity: 0.7; }
   .total-amount { font-size: 24px; font-weight: 700; }
+  .info-card { background: #fff; border-radius: 10px; border: 1px solid #e0ddd5; padding: 14px 16px; margin-bottom: 12px; }
+  .info-card-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .info-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #f5f4f0; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { font-size: 14px; color: #444; }
+  .info-value { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .absent-card { background: #fff8e1; border-radius: 10px; border: 1px solid #ffe082; padding: 14px 16px; margin-bottom: 12px; }
+  .absent-card-title { font-size: 11px; font-weight: 700; color: #b8860b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .absent-amount { font-size: 22px; font-weight: 800; color: #b8860b; margin-bottom: 4px; }
+  .absent-explain { font-size: 12px; color: #888; }
 
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
   .modal-overlay.open { display: flex; }
@@ -300,8 +320,11 @@
 <script>
 const COLORS = ['#E8D5B7','#B7D5E8','#D5E8B7','#E8B7D5','#D5B7E8','#E8C8B7','#B7E8D5','#E8E8B7','#C8B7E8','#B7C8E8','#E8D5C8','#C8E8B7'];
 
+const BAHN_FEE = 3.00;
+
 let state = {
   spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen','Gast'],
+  anwesend: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen','Gast'],
   spiele: [
     { id: 'hohe-hausnummer', name: 'Hohe Hausnummer', mode: 'tief', loserCount: 3, scores: {}, showResult: false },
     { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'hoch', loserCount: 3, scores: {}, showResult: false },
@@ -392,9 +415,10 @@ function renderTable(group) {
 
   // Player rows
   for (const s of state.spieler) {
+    const da = state.anwesend.includes(s);
     const rowTotal = strafen.reduce((sum, st) => sum + getCount(s,group,st.name)*st.coins, 0);
-    html += `<tr class="tr-player">`;
-    html += `<td class="td-name"><div class="td-name-inner"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div></td>`;
+    html += `<tr class="tr-player${da?'':' absent-row'}">`;
+    html += `<td class="td-name"><div class="td-name-inner"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${s.trim()}</span><button class="da-toggle ${da?'is-da':'is-weg'}" onclick="toggleAnwesend('${esc(s)}')">${da?'da':'weg'}</button></div></td>`;
     for (const st of strafen) {
       const c = getCount(s, group, st.name);
       html += `<td class="td-count" ontouchstart="startLong('${esc(s)}','${group}','${esc(st.name)}')" ontouchend="endLong()" ontouchmove="endLong()" onmousedown="startLong('${esc(s)}','${group}','${esc(st.name)}')" onmouseup="endLong()" onmouseleave="endLong()" onclick="tap('${esc(s)}','${group}','${esc(st.name)}')"><div class="count-inner"><span class="count-num${c===0?' zero':''}">${c===0?'·':c}</span></div></td>`;
@@ -403,7 +427,7 @@ function renderTable(group) {
     html += '</tr>';
   }
 
-  // Sum row
+  // Sum row — only count present players
   html += `<tr class="tr-sum">`;
   html += `<td class="td-name" style="font-size:11px;color:#888;">GESAMT</td>`;
   for (const st of strafen) {
@@ -418,32 +442,86 @@ function renderTable(group) {
   document.getElementById('table-'+group).innerHTML = html;
 }
 
-function renderSummary() {
-  const all = state.spieler.map(s => ({name:s, total:getPlayerTotal(s)}));
-  all.sort((a,b)=>b.total-a.total);
-  const grand = all.reduce((s,p)=>s+p.total,0);
-  const maxTotal = all[0]?.total || 0;
+function toggleAnwesend(s) {
+  if (state.anwesend.includes(s)) {
+    state.anwesend = state.anwesend.filter(p => p !== s);
+  } else {
+    state.anwesend.push(s);
+  }
+  renderAll();
+}
 
-  let html = `<div class="total-card"><span class="total-label">Gesamtkasse</span><span class="total-amount">${fmtEuro(grand)}</span></div>`;
+function renderSummary() {
+  const anwesend = state.anwesend;
+  const all = state.spieler.map(s => ({ name: s, total: getPlayerTotal(s), da: anwesend.includes(s) }));
+  all.sort((a, b) => {
+    if (a.da !== b.da) return a.da ? -1 : 1; // present first
+    return b.total - a.total;
+  });
+
+  // Calculations
+  const anwesendPlayers = all.filter(p => p.da);
+  const strafenSum = anwesendPlayers.reduce((s, p) => s + p.total, 0);
+  const count = anwesendPlayers.length;
+  const avg = count > 0 ? strafenSum / count : 0;
+  const grandTotal = anwesendPlayers.reduce((s, p) => s + p.total + BAHN_FEE, 0);
+  const maxTotal = anwesendPlayers.reduce((max, p) => Math.max(max, p.total), 0);
+
+  // Header totals
+  let html = `<div class="total-card">
+    <div><div class="total-label">Gesamtkasse (inkl. Bahn)</div><div style="font-size:11px;opacity:0.5;margin-top:2px;">Strafen + ${count} × ${fmtEuro(BAHN_FEE)} Bahn</div></div>
+    <span class="total-amount">${fmtEuro(grandTotal)}</span>
+  </div>`;
+
+  // Absent card
+  html += `<div class="absent-card">
+    <div class="absent-card-title">Zu zahlen — nicht anwesende Kegler</div>
+    <div class="absent-amount">${fmtEuro(avg)}</div>
+    <div class="absent-explain">Ø Strafen der ${count} anwesenden Kegler (ohne Bahngebühr)</div>
+  </div>`;
+
+  // Stats row
+  html += `<div class="info-card">
+    <div class="info-card-title">Auswertung</div>
+    <div class="info-row"><span class="info-label">Anwesende Kegler</span><span class="info-value">${count}</span></div>
+    <div class="info-row"><span class="info-label">Gesamtstrafen</span><span class="info-value">${fmtEuro(strafenSum)}</span></div>
+    <div class="info-row"><span class="info-label">Ø Strafen pro Kegler</span><span class="info-value">${fmtEuro(avg)}</span></div>
+    <div class="info-row"><span class="info-label">Bahngebühr</span><span class="info-value">${fmtEuro(BAHN_FEE)} / Person</span></div>
+  </div>`;
+
+  // Player list
   html += '<div class="summary-card">';
   for (const p of all) {
     const details = [];
     for (const g of ['allgemein','kegel']) {
       for (const st of state.strafen[g]) {
-        const c = getCount(p.name,g,st.name);
-        if (c>0) details.push(`${st.name.replace(/\n/,' ')}: ${c}×`);
+        const c = getCount(p.name, g, st.name);
+        if (c > 0) details.push(`${st.name.replace(/\n/g,' ')}: ${c}×`);
       }
     }
-    const isMax = p.total === maxTotal && maxTotal > 0;
-    html += `<div class="summary-row">
+    const isMax = p.da && p.total === maxTotal && maxTotal > 0;
+    const totalMitBahn = p.total + BAHN_FEE;
+    const toggleLabel = p.da ? 'da' : 'weg';
+    const toggleCls = p.da ? 'da' : 'weg';
+
+    html += `<div class="summary-row${p.da ? '' : ' absent'}">
       <div class="summary-name">
         <div class="avatar" style="background:${avatarColor(p.name)}">${initials(p.name)}</div>
         <div>
-          <div>${p.name.trim()} ${isMax?'<span class="badge">meiste</span>':''}</div>
-          <div class="summary-detail">${details.join(', ')||'–'}</div>
+          <div style="font-size:14px;">${p.name.trim()} ${isMax ? '<span class="badge">meiste</span>' : ''}</div>
+          <div class="summary-detail">${details.join(', ') || '–'}</div>
         </div>
       </div>
-      <span class="summary-amount${p.total===0?' zero':''}">${p.total>0?fmtEuro(p.total):'–'}</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <button class="anwesend-toggle ${toggleCls}" onclick="toggleAnwesend('${esc(p.name)}')">${toggleLabel}</button>
+        ${p.da
+          ? `<div style="text-align:right;">
+               <span class="summary-amount">${fmtEuro(totalMitBahn)}</span>
+               <span class="summary-amount-sub">${fmtEuro(p.total)} + ${fmtEuro(BAHN_FEE)} Bahn</span>
+             </div>`
+          : `<span class="summary-amount zero">–</span>`
+        }
+      </div>
     </div>`;
   }
   html += '</div>';
@@ -1070,12 +1148,14 @@ function addSpieler() {
   const v = inp.value.trim();
   if (!v || state.spieler.includes(v)) return;
   state.spieler.push(v);
+  state.anwesend.push(v); // new players are present by default
   inp.value = '';
   renderAll();
   renderSetContent();
 }
 function removeSpieler(i) {
   const s = state.spieler.splice(i,1)[0];
+  state.anwesend = state.anwesend.filter(p => p !== s);
   for (const g of ['allgemein','kegel']) for (const st of state.strafen[g]) delete state.counts[key(s,g,st.name)];
   renderAll(); renderSetContent();
 }
@@ -1224,17 +1304,44 @@ function exportPDF() {
       doc.setDrawColor(200, 197, 190);
       doc.line(14, 19, pageW - 14, 19);
 
-      const ranked = [...state.spieler]
-        .map(s => ({ name: s, total: getPlayerTotal(s) }))
-        .sort((a, b) => b.total - a.total);
+      // Calculations (mirror renderSummary logic)
+      const pdfAnwesend = state.anwesend;
+      const pdfAll = state.spieler.map(s => ({ name: s, total: getPlayerTotal(s), da: pdfAnwesend.includes(s) }));
+      const pdfPresent = pdfAll.filter(p => p.da);
+      const pdfAbsent = pdfAll.filter(p => !p.da);
+      const pdfStrafenSum = pdfPresent.reduce((s, p) => s + p.total, 0);
+      const pdfCount = pdfPresent.length;
+      const pdfAvg = pdfCount > 0 ? pdfStrafenSum / pdfCount : 0;
+      const pdfGrand = pdfPresent.reduce((s, p) => s + p.total + BAHN_FEE, 0);
 
-      const grand = ranked.reduce((s, p) => s + p.total, 0);
+      // Stats box
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(80, 80, 80);
+      const statsY = 23;
+      doc.autoTable({
+        body: [
+          ['Anwesende Kegler', String(pdfCount), 'Ø Strafen', fmtEuro(pdfAvg)],
+          ['Gesamtstrafen', fmtEuro(pdfStrafenSum), 'Bahngebühr', fmtEuro(BAHN_FEE) + ' / Person'],
+          ['Zu zahlen — nicht anwesende Kegler', { content: fmtEuro(pdfAvg), styles: { fontStyle: 'bold', textColor: [184,134,11] } }, 'Gesamtkasse (inkl. Bahn)', { content: fmtEuro(pdfGrand), styles: { fontStyle: 'bold', textColor: [26,92,42] } }],
+        ],
+        startY: statsY,
+        margin: { left: 14, right: 14 },
+        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [224,221,213], lineWidth: 0.2 },
+        columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 25, halign: 'right' }, 2: { cellWidth: 55 }, 3: { cellWidth: 30, halign: 'right' } },
+        theme: 'grid',
+      });
 
+      const tableStartY = doc.lastAutoTable.finalY + 6;
+
+      // Present players
+      const ranked = [...pdfPresent].sort((a, b) => b.total - a.total);
       const summHead = [[
         { content: '#', styles: { halign: 'center', fillColor: [245,244,240], textColor: [80,80,80] } },
-        { content: 'Spieler', styles: { fillColor: [245,244,240], textColor: [30,30,30] } },
+        { content: 'Spieler (anwesend)', styles: { fillColor: [245,244,240], textColor: [30,30,30] } },
         { content: 'Details', styles: { fillColor: [245,244,240], textColor: [80,80,80] } },
-        { content: 'Betrag', styles: { halign: 'right', fillColor: [232,229,222], textColor: [30,30,30] } },
+        { content: 'Strafen', styles: { halign: 'right', fillColor: [245,244,240], textColor: [30,30,30] } },
+        { content: 'Gesamt (+ Bahn)', styles: { halign: 'right', fillColor: [232,229,222], textColor: [30,30,30] } },
       ]];
 
       const summBody = ranked.map((p, i) => {
@@ -1249,29 +1356,49 @@ function exportPDF() {
           { content: String(i + 1), styles: { halign: 'center', textColor: [130,130,130] } },
           { content: p.name.trim(), styles: { fontStyle: 'bold' } },
           { content: details.join('  ·  ') || '–', styles: { textColor: [120,120,120], fontSize: 8 } },
-          { content: p.total > 0 ? fmtEuro(p.total) : '–', styles: { halign: 'right', fontStyle: 'bold' } },
+          { content: p.total > 0 ? fmtEuro(p.total) : '–', styles: { halign: 'right' } },
+          { content: fmtEuro(p.total + BAHN_FEE), styles: { halign: 'right', fontStyle: 'bold' } },
         ];
       });
 
-      // Grand total row
+      // Total row
       summBody.push([
         { content: '', styles: { fillColor: [232,229,222] } },
-        { content: 'Gesamtkasse', styles: { fontStyle: 'bold', fillColor: [232,229,222] } },
+        { content: 'Gesamt', styles: { fontStyle: 'bold', fillColor: [232,229,222] } },
         { content: '', styles: { fillColor: [232,229,222] } },
-        { content: fmtEuro(grand), styles: { halign: 'right', fontStyle: 'bold', fillColor: [232,229,222], fontSize: 12 } },
+        { content: fmtEuro(pdfStrafenSum), styles: { halign: 'right', fillColor: [232,229,222] } },
+        { content: fmtEuro(pdfGrand), styles: { halign: 'right', fontStyle: 'bold', fillColor: [232,229,222], fontSize: 11 } },
       ]);
 
       doc.autoTable({
         head: summHead,
         body: summBody,
-        startY: 24,
+        startY: tableStartY,
         margin: { left: 14, right: 14 },
         styles: { fontSize: 10, cellPadding: 3, lineColor: [224,221,213], lineWidth: 0.2 },
-        columnStyles: { 0: { cellWidth: 10 }, 3: { cellWidth: 28 } },
+        columnStyles: { 0: { cellWidth: 10 }, 3: { cellWidth: 24, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' } },
         theme: 'grid',
         tableLineColor: [200,197,190],
         tableLineWidth: 0.3,
       });
+
+      // Absent players (if any)
+      if (pdfAbsent.length > 0) {
+        const absentY = doc.lastAutoTable.finalY + 6;
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(184, 134, 11);
+        doc.text(`Nicht anwesend — zu zahlen je ${fmtEuro(pdfAvg)}`, 14, absentY + 4);
+        doc.autoTable({
+          body: pdfAbsent.map(p => [p.name.trim(), fmtEuro(pdfAvg)]),
+          startY: absentY + 7,
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 9, cellPadding: 2.5, lineColor: [255,224,130], lineWidth: 0.2, textColor: [100,80,0] },
+          columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+          theme: 'grid',
+          tableLineWidth: 0.3,
+        });
+      }
 
       // Page numbers
       const pageCount = doc.internal.getNumberOfPages();
