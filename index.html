@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kegel-Strafen</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kegeln">
+<meta name="theme-color" content="#1a5c2a">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1a1a; font-size: 14px; }
+
+  .topbar { background: #fff; border-bottom: 1px solid #e0ddd5; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-title { font-size: 17px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 8px; }
+  .btn { padding: 7px 14px; border-radius: 8px; border: 1px solid #d0cdc5; background: #fff; font-size: 13px; cursor: pointer; font-weight: 500; color: #1a1a1a; }
+  .btn:active { background: #f0ede8; }
+  .btn-danger { border-color: #e0a0a0; color: #c0392b; }
+  .btn-danger:active { background: #fdf0f0; }
+  .btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .btn-primary:active { background: #333; }
+
+  .tabs { display: flex; gap: 0; background: #fff; border-bottom: 1px solid #e0ddd5; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { padding: 10px 18px; font-size: 13px; font-weight: 500; color: #888; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+
+  .page { display: none; padding: 0 0 80px; }
+  .page.active { display: block; }
+
+  .section { margin: 16px 12px 0; }
+  .section-header { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; padding: 0 4px; }
+
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; border: 1px solid #e0ddd5; background: #fff; }
+  table { border-collapse: collapse; min-width: 100%; }
+  th, td { border-right: 1px solid #e8e5de; border-bottom: 1px solid #e8e5de; white-space: nowrap; }
+  th:last-child, td:last-child { border-right: none; }
+  tr:last-child td { border-bottom: none; }
+
+  .th-name { position: sticky; left: 0; z-index: 10; background: #f5f4f0; font-weight: 600; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 12px; min-width: 100px; }
+  .th-strafe { text-align: center; padding: 6px 4px 2px; min-width: 70px; max-width: 90px; }
+  .th-strafe-name { font-size: 11px; font-weight: 600; color: #1a1a1a; line-height: 1.2; word-break: break-word; white-space: normal; max-width: 80px; display: block; text-align: center; }
+  .th-strafe-price { font-size: 11px; color: #888; margin-top: 2px; display: block; text-align: center; }
+  .th-total { position: sticky; right: 0; background: #f5f4f0; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 12px; min-width: 72px; text-align: right; }
+
+  .td-name { position: sticky; left: 0; background: #fff; z-index: 5; font-weight: 500; font-size: 14px; padding: 0 12px; height: 44px; min-width: 100px; }
+  .td-name-inner { display: flex; align-items: center; gap: 6px; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: #e8e5de; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #555; flex-shrink: 0; }
+
+  .td-count { text-align: center; padding: 0; height: 44px; cursor: pointer; user-select: none; position: relative; min-width: 70px; }
+  .td-count:active { background: #f0f7ff; }
+  .count-inner { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .count-num { font-size: 15px; font-weight: 500; color: #1a1a1a; min-width: 20px; text-align: center; }
+  .count-num.zero { color: #d0cdc5; }
+
+  .td-total { position: sticky; right: 0; background: #fafaf7; font-weight: 600; font-size: 14px; padding: 0 12px; height: 44px; text-align: right; min-width: 72px; }
+  .td-total-inner { display: flex; align-items: center; justify-content: flex-end; height: 100%; }
+
+  .tr-player:nth-child(even) .td-name { background: #fafaf7; }
+  .tr-player:nth-child(even) .td-count { background: transparent; }
+  .tr-player:nth-child(even) .td-count:active { background: #e8f4ff; }
+  .tr-player:nth-child(even) .td-total { background: #f5f4f0; }
+
+  .tr-sum .td-name { background: #f0ede8; font-size: 12px; color: #888; font-weight: 600; }
+  .tr-sum td { background: #f0ede8; border-top: 2px solid #d0cdc5; }
+  .tr-sum .td-total { background: #e8e5de; }
+  .tr-sum .count-num { font-size: 12px; font-weight: 600; color: #888; }
+  .tr-sum .count-num.zero { color: #ccc; }
+  .tr-sum .td-total-inner { font-size: 13px; color: #888; }
+
+  .hint { font-size: 12px; color: #aaa; text-align: center; padding: 10px 16px; }
+
+  .summary-page { padding: 16px 12px 80px; }
+  .summary-card { background: #fff; border-radius: 10px; border: 1px solid #e0ddd5; overflow: hidden; margin-bottom: 12px; }
+  .summary-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f0ede8; gap: 12px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-name { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 15px; }
+  .summary-detail { font-size: 12px; color: #999; margin-top: 2px; }
+  .summary-amount { font-size: 18px; font-weight: 600; }
+  .summary-amount.zero { color: #ccc; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: #fff3cd; color: #856404; font-weight: 600; }
+  .total-card { background: #1a1a1a; color: #fff; border-radius: 10px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .total-label { font-size: 13px; opacity: 0.7; }
+  .total-amount { font-size: 24px; font-weight: 700; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; padding: 20px 20px 40px; width: 100%; max-width: 500px; }
+  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .modal-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .modal input[type=text], .modal input[type=number] { height: 42px; border: 1px solid #d0cdc5; border-radius: 8px; padding: 0 12px; font-size: 14px; width: 100%; background: #fff; color: #1a1a1a; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions .btn { flex: 1; height: 44px; font-size: 15px; }
+  .strafe-list-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0ede8; gap: 8px; }
+  .strafe-list-item:last-child { border-bottom: none; }
+  .strafe-list-name { flex: 1; font-size: 14px; }
+  .strafe-list-price { font-size: 14px; color: #888; width: 60px; text-align: right; }
+  .strafe-del { background: none; border: none; color: #c0392b; font-size: 18px; cursor: pointer; padding: 2px 6px; }
+
+  .edit-hint { font-size: 12px; color: #aaa; text-align: center; padding: 4px 0 0; }
+
+  /* Spiele */
+  .spiele-page { padding: 16px 12px 80px; }
+  .spiel-card { background: #fff; border-radius: 10px; border: 1px solid #e0ddd5; overflow: hidden; margin-bottom: 12px; }
+  .spiel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; }
+  .spiel-header:active { background: #f5f4f0; }
+  .spiel-title { font-size: 16px; font-weight: 600; }
+  .spiel-meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .spiel-chevron { font-size: 18px; color: #aaa; transition: transform 0.2s; }
+  .spiel-chevron.open { transform: rotate(180deg); }
+  .spiel-body { display: none; border-top: 1px solid #f0ede8; padding: 16px; }
+  .spiel-body.open { display: block; }
+  .score-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f5f4f0; }
+  .score-row:last-of-type { border-bottom: none; }
+  .score-name { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 14px; font-weight: 500; }
+  .score-input { width: 80px; height: 40px; border: 1px solid #d0cdc5; border-radius: 8px; padding: 0 10px; font-size: 16px; font-weight: 600; text-align: center; background: #fff; color: #1a1a1a; }
+  .score-input:focus { outline: none; border-color: #888; }
+  .score-input.loser { border-color: #e0a0a0; background: #fff5f5; color: #c0392b; }
+  .score-input.winner { border-color: #a0c8a0; background: #f5fff5; color: #27ae60; }
+  .spiel-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .spiel-actions .btn { flex: 1; height: 42px; font-size: 14px; }
+  .result-list { margin-top: 14px; }
+  .result-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; }
+  .result-rank { font-size: 16px; font-weight: 700; width: 28px; text-align: center; color: #888; }
+  .result-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .result-score { font-size: 16px; font-weight: 700; }
+  .result-row.loser { background: #fff0f0; }
+  .result-row.loser .result-rank { color: #c0392b; }
+  .result-row.loser .result-name { color: #c0392b; }
+  .result-row.loser .result-score { color: #c0392b; }
+  .result-row.top { background: #f0fff4; }
+  .result-row.top .result-rank { color: #27ae60; }
+  .loser-badge { font-size: 11px; background: #fde8e8; color: #c0392b; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+  .winner-tag { font-size: 11px; background: #e8fde8; color: #27ae60; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+  .loser-count-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f0ede8; }
+  .loser-count-label { font-size: 13px; color: #555; flex: 1; }
+  .stepper { display: flex; align-items: center; gap: 8px; }
+  .stepper-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #d0cdc5; background: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #1a1a1a; }
+  .stepper-btn:active { background: #f0ede8; }
+  .stepper-val { font-size: 16px; font-weight: 600; min-width: 20px; text-align: center; }
+  .add-game-card { background: #fff; border-radius: 10px; border: 1px dashed #d0cdc5; padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 12px; color: #888; font-size: 14px; font-weight: 500; }
+  .add-game-card:active { background: #f5f4f0; }
+
+  /* Tannenbaum */
+  .tanne-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tanne-team-col { background: #f5f4f0; border-radius: 8px; padding: 10px; min-height: 60px; }
+  .tanne-team-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 8px; }
+  .tanne-team1-label { color: #1a6bc0; }
+  .tanne-team2-label { color: #c01a1a; }
+  .tanne-player-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 5px; border-radius: 20px; margin: 3px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; }
+  .tanne-player-chip:active { opacity: 0.7; }
+  .chip-unassigned { background: #e8e5de; color: #555; border-color: #d0cdc5; }
+  .chip-team1 { background: #dceeff; color: #1a6bc0; border-color: #aaccee; }
+  .chip-team2 { background: #ffdddd; color: #c01a1a; border-color: #eeaaaa; }
+  .tanne-setup-hint { font-size: 12px; color: #aaa; text-align: center; margin-bottom: 12px; }
+  .tanne-trees { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+  .tanne-tree-wrap { background: #f5f4f0; border-radius: 10px; padding: 10px 6px 14px; }
+  .tanne-tree-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; text-align: center; margin-bottom: 10px; }
+  .tanne-tree-title.t1 { color: #1a6bc0; }
+  .tanne-tree-title.t2 { color: #c01a1a; }
+  .tanne-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
+  .tanne-cell { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; cursor: pointer; user-select: none; border: 1.5px solid; transition: all 0.1s; }
+  .tanne-cell:active { transform: scale(0.92); }
+  .tanne-cell.t1-active { background: #dceeff; color: #1a6bc0; border-color: #aaccee; }
+  .tanne-cell.t1-done { background: #e8e5de; color: #bbb; border-color: #d0cdc5; text-decoration: line-through; }
+  .tanne-cell.t2-active { background: #ffdddd; color: #c01a1a; border-color: #eeaaaa; }
+  .tanne-cell.t2-done { background: #e8e5de; color: #bbb; border-color: #d0cdc5; text-decoration: line-through; }
+  .tanne-progress { text-align: center; font-size: 12px; color: #888; margin-top: 8px; }
+  .tanne-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
+  .tanne-players-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f0ede8; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">Kegel-Strafen</span>
+  <div class="topbar-actions">
+    <button class="btn" onclick="openSettings()">Einstellungen</button>
+    <button class="btn btn-danger" onclick="confirmReset()">Reset</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('allgemein')">Allgemein</div>
+  <div class="tab" onclick="showTab('kegel')">Kegel</div>
+  <div class="tab" onclick="showTab('spiele')">Spiele</div>
+  <div class="tab" onclick="showTab('zusammenfassung')">Zusammenfassung</div>
+</div>
+
+<div class="hint" id="main-hint">Tippen = +1 &nbsp;|&nbsp; Lang drücken = −1</div>
+
+<div id="page-allgemein" class="page active">
+  <div class="section">
+    <div id="table-allgemein"></div>
+  </div>
+</div>
+
+<div id="page-kegel" class="page">
+  <div class="section">
+    <div id="table-kegel"></div>
+  </div>
+</div>
+
+<div id="page-spiele" class="page">
+  <div class="spiele-page" id="spiele-content"></div>
+</div>
+
+<div id="page-zusammenfassung" class="page">
+  <div class="summary-page" id="summary-content"></div>
+</div>
+
+<div class="modal-overlay" id="add-game-modal">
+  <div class="modal">
+    <div class="modal-title">Spiel hinzufügen</div>
+    <div class="modal-row"><input type="text" id="inp-game-name" placeholder="Spielname..."></div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px;color:#555;margin-bottom:8px;">Wer verliert?</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="mode-btn-tief" onclick="selectMode('tief')" style="flex:1;">Niedrigste Zahl</button>
+        <button class="btn" id="mode-btn-hoch" onclick="selectMode('hoch')" style="flex:1;">Höchste Zahl</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddGame()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveNewGame()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-title">Einstellungen</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="btn" id="set-tab-spieler" onclick="setTab('spieler')" style="flex:1;">Spieler</button>
+      <button class="btn" id="set-tab-allgemein" onclick="setTab('allgemein')" style="flex:1;">Allgemein</button>
+      <button class="btn" id="set-tab-kegel" onclick="setTab('kegel')" style="flex:1;">Kegel</button>
+    </div>
+    <div id="set-content"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSettings()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#E8D5B7','#B7D5E8','#D5E8B7','#E8B7D5','#D5B7E8','#E8C8B7','#B7E8D5','#E8E8B7','#C8B7E8','#B7C8E8','#E8D5C8','#C8E8B7'];
+
+let state = {
+  spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen','Gast'],
+  spiele: [
+    { id: 'hohe-hausnummer', name: 'Hohe Hausnummer', mode: 'tief', loserCount: 3, scores: {}, showResult: false },
+    { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'hoch', loserCount: 3, scores: {}, showResult: false },
+  ],
+  tannenbaum: {
+    open: false,
+    team1: [],
+    team2: [],
+    tree1: new Array(25).fill(false),
+    tree2: new Array(25).fill(false),
+  },
+  strafen: {
+    allgemein: [
+      {name:'Glas umwerfen', coins:1.0},
+      {name:'Spucken', coins:0.2},
+      {name:'Schnipsen', coins:0.5},
+      {name:'Stuhl umwerfen', coins:2.0},
+      {name:'Handy spielen', coins:5.0},
+      {name:'Stina', coins:0.5},
+      {name:'Verspätung\n(pro 15 Min)', coins:2.0},
+      {name:'Pumpenkegel\nvergessen', coins:5.0},
+      {name:'Kegelshirt\nvergessen', coins:5.0},
+    ],
+    kegel: [
+      {name:'Pumpe', coins:0.3},
+      {name:'Alle 9', coins:1.0},
+      {name:'Klingel', coins:1.0},
+      {name:'Behinderung', coins:0.5},
+      {name:'Kugel\neinholen', coins:5.0},
+      {name:'Kugel\nn. einholen', coins:0.5},
+      {name:'Kugel\nz.T.', coins:1.0},
+      {name:'Kugel falsch\ngebracht', coins:1.0},
+      {name:'verl. Spiel', coins:1.0},
+      {name:'Lustwurf', coins:2.0},
+      {name:'Schnapszahl', coins:2.0},
+      {name:'Straße', coins:1.0},
+    ]
+  },
+  counts: {}
+};
+
+function key(s, group, st) { return s + '|' + group + '|' + st; }
+function getCount(s, g, st) { return state.counts[key(s,g,st)] || 0; }
+function initials(name) { return name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function avatarColor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
+function fmtEuro(v) { return v.toFixed(2).replace('.',',') + ' €'; }
+
+function getPlayerTotal(s) {
+  let sum = 0;
+  for (const g of ['allgemein','kegel']) {
+    for (const st of state.strafen[g]) {
+      sum += getCount(s,g,st.name) * st.coins;
+    }
+  }
+  return sum;
+}
+
+function renderTable(group) {
+  const strafen = state.strafen[group];
+  let html = '<div class="table-wrap"><table>';
+  // Header
+  html += '<thead><tr>';
+  html += `<th class="th-name">Name</th>`;
+  for (const st of strafen) {
+    const nameParts = st.name.replace('\\n','\n').split('\n');
+    html += `<th class="th-strafe"><span class="th-strafe-name">${nameParts.join('<br>')}</span><span class="th-strafe-price">${st.coins.toFixed(2).replace('.',',')} €</span></th>`;
+  }
+  html += `<th class="th-total">Summe</th>`;
+  html += '</tr></thead><tbody>';
+
+  // Player rows
+  for (const s of state.spieler) {
+    const rowTotal = strafen.reduce((sum, st) => sum + getCount(s,group,st.name)*st.coins, 0);
+    html += `<tr class="tr-player">`;
+    html += `<td class="td-name"><div class="td-name-inner"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div></td>`;
+    for (const st of strafen) {
+      const c = getCount(s, group, st.name);
+      html += `<td class="td-count" ontouchstart="startLong('${esc(s)}','${group}','${esc(st.name)}')" ontouchend="endLong()" ontouchmove="endLong()" onmousedown="startLong('${esc(s)}','${group}','${esc(st.name)}')" onmouseup="endLong()" onmouseleave="endLong()" onclick="tap('${esc(s)}','${group}','${esc(st.name)}')"><div class="count-inner"><span class="count-num${c===0?' zero':''}">${c===0?'·':c}</span></div></td>`;
+    }
+    html += `<td class="td-total"><div class="td-total-inner">${rowTotal>0?fmtEuro(rowTotal):'—'}</div></td>`;
+    html += '</tr>';
+  }
+
+  // Sum row
+  html += `<tr class="tr-sum">`;
+  html += `<td class="td-name" style="font-size:11px;color:#888;">GESAMT</td>`;
+  for (const st of strafen) {
+    const colSum = state.spieler.reduce((sum,s)=>sum+getCount(s,group,st.name),0);
+    html += `<td class="td-count" style="cursor:default;"><div class="count-inner"><span class="count-num${colSum===0?' zero':''}">${colSum===0?'':colSum}</span></div></td>`;
+  }
+  const groupTotal = state.spieler.reduce((sum,s) => sum + strafen.reduce((s2,st)=>s2+getCount(s,group,st.name)*st.coins,0), 0);
+  html += `<td class="td-total" style="background:#e8e5de;"><div class="td-total-inner">${fmtEuro(groupTotal)}</div></td>`;
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  document.getElementById('table-'+group).innerHTML = html;
+}
+
+function renderSummary() {
+  const all = state.spieler.map(s => ({name:s, total:getPlayerTotal(s)}));
+  all.sort((a,b)=>b.total-a.total);
+  const grand = all.reduce((s,p)=>s+p.total,0);
+  const maxTotal = all[0]?.total || 0;
+
+  let html = `<div class="total-card"><span class="total-label">Gesamtkasse</span><span class="total-amount">${fmtEuro(grand)}</span></div>`;
+  html += '<div class="summary-card">';
+  for (const p of all) {
+    const details = [];
+    for (const g of ['allgemein','kegel']) {
+      for (const st of state.strafen[g]) {
+        const c = getCount(p.name,g,st.name);
+        if (c>0) details.push(`${st.name.replace(/\n/,' ')}: ${c}×`);
+      }
+    }
+    const isMax = p.total === maxTotal && maxTotal > 0;
+    html += `<div class="summary-row">
+      <div class="summary-name">
+        <div class="avatar" style="background:${avatarColor(p.name)}">${initials(p.name)}</div>
+        <div>
+          <div>${p.name.trim()} ${isMax?'<span class="badge">meiste</span>':''}</div>
+          <div class="summary-detail">${details.join(', ')||'–'}</div>
+        </div>
+      </div>
+      <span class="summary-amount${p.total===0?' zero':''}">${p.total>0?fmtEuro(p.total):'–'}</span>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('summary-content').innerHTML = html;
+}
+
+let longTimer = null;
+let longFired = false;
+
+function startLong(s, g, st) {
+  longFired = false;
+  longTimer = setTimeout(() => {
+    longFired = true;
+    const k = key(s,g,st);
+    state.counts[k] = Math.max(0,(state.counts[k]||0)-1);
+    renderAll();
+    if (navigator.vibrate) navigator.vibrate(40);
+  }, 500);
+}
+function endLong() { clearTimeout(longTimer); }
+function tap(s, g, st) {
+  if (longFired) { longFired=false; return; }
+  const k = key(s,g,st);
+  state.counts[k] = (state.counts[k]||0)+1;
+  renderAll();
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function esc(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function renderAll() {
+  renderTable('allgemein');
+  renderTable('kegel');
+  renderSummary();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  const map = {allgemein:0,kegel:1,spiele:2,zusammenfassung:3};
+  tabs[map[name]].classList.add('active');
+  document.getElementById('main-hint').style.display = (name==='spiele'||name==='zusammenfassung') ? 'none' : '';
+  if (name==='spiele') renderSpiele();
+}
+
+// ── Spiele ──────────────────────────────────────────────
+function renderSpiele() {
+  const c = document.getElementById('spiele-content');
+  let html = '';
+  state.spiele.forEach((g, gi) => {
+    const modeLabel = g.mode === 'tief' ? 'Niedrigste Zahl verliert' : 'Höchste Zahl verliert';
+    const allFilled = state.spieler.every(s => g.scores[s] !== undefined && g.scores[s] !== '');
+    html += `<div class="spiel-card">
+      <div class="spiel-header" onclick="toggleSpiel(${gi})">
+        <div>
+          <div class="spiel-title">${g.name}</div>
+          <div class="spiel-meta">${modeLabel} &nbsp;·&nbsp; ${g.loserCount} Verlierer</div>
+        </div>
+        <span class="spiel-chevron${g.open?' open':''}" id="chev-${gi}">&#8964;</span>
+      </div>
+      <div class="spiel-body${g.open?' open':''}" id="body-${gi}">
+        <div class="loser-count-row">
+          <span class="loser-count-label">Anzahl Verlierer</span>
+          <div class="stepper">
+            <button class="stepper-btn" onclick="changeLoser(${gi},-1)">−</button>
+            <span class="stepper-val" id="lc-${gi}">${g.loserCount}</span>
+            <button class="stepper-btn" onclick="changeLoser(${gi},1)">+</button>
+          </div>
+        </div>
+        ${state.spieler.map(s => {
+          const val = g.scores[s] !== undefined ? g.scores[s] : '';
+          return `<div class="score-row">
+            <div class="score-name"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div>
+            <input class="score-input" type="number" inputmode="numeric" id="sc-${gi}-${esc2(s)}" value="${val}" placeholder="–" onchange="setScore(${gi},'${esc(s)}',this.value)" oninput="setScore(${gi},'${esc(s)}',this.value)">
+          </div>`;
+        }).join('')}
+        <div class="spiel-actions">
+          <button class="btn btn-danger" onclick="resetSpiel(${gi})">Zurücksetzen</button>
+          <button class="btn btn-primary" onclick="auswerten(${gi})" ${!allFilled?'style="opacity:0.5;"':''}>Auswerten</button>
+        </div>
+        ${g.showResult ? renderResult(g) : ''}
+      </div>
+    </div>`;
+  });
+  html += renderTannenbaumCard();
+  html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
+  c.innerHTML = html;
+}
+
+// ── Tannenbaum ──────────────────────────────────────────────
+const TREE_ROWS = [[9],[8,8],[7,7,7],[6,6,6,6],[5,5,5,5,5],[4,4,4,4],[3,3,3],[2,2],[1]];
+// Cell index mapping: row → start index
+const TREE_ROW_START = [0,1,3,6,10,15,19,22,24];
+
+function renderTannenbaumCard() {
+  const tb = state.tannenbaum;
+  const chevron = `<span class="spiel-chevron${tb.open?' open':''}"">&#8964;</span>`;
+  const assigned1 = tb.team1.length, assigned2 = tb.team2.length;
+  const metaLabel = (assigned1+assigned2 > 0)
+    ? `Team 1: ${assigned1} Spieler · Team 2: ${assigned2} Spieler`
+    : 'Spieler noch nicht eingeteilt';
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleTanne()">
+      <div>
+        <div class="spiel-title">Tannenbaum</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      ${chevron}
+    </div>
+    <div class="spiel-body${tb.open?' open':''}">`;
+
+  // Team assignment
+  html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
+  html += `<div class="tanne-teams">
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      ${tb.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="tanneAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      ${tb.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="tanneAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+  </div>`;
+
+  // Unassigned players
+  const unassigned = state.spieler.filter(s => !tb.team1.includes(s) && !tb.team2.includes(s));
+  if (unassigned.length > 0) {
+    html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px;">NICHT ZUGETEILT</div>`;
+    html += `<div class="tanne-players-row">`;
+    html += unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="tanneAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ T1</span></div>`).join('');
+    html += `</div>`;
+  }
+
+  // Trees side by side
+  const done1 = tb.tree1.filter(Boolean).length;
+  const done2 = tb.tree2.filter(Boolean).length;
+  const allDone1 = done1 === 25, allDone2 = done2 === 25;
+
+  html += `<div class="tanne-trees">
+    <div class="tanne-tree-wrap">
+      <div class="tanne-tree-title t1">Team 1</div>
+      ${renderTree(tb.tree1, 't1', 1)}
+      <div class="tanne-progress">${done1} / 25</div>
+    </div>
+    <div class="tanne-tree-wrap">
+      <div class="tanne-tree-title t2">Team 2</div>
+      ${renderTree(tb.tree2, 't2', 2)}
+      <div class="tanne-progress">${done2} / 25</div>
+    </div>
+  </div>`;
+
+  if (allDone1 || allDone2) {
+    if (allDone1 && allDone2) {
+      html += `<div class="tanne-winner-banner">Unentschieden!</div>`;
+    } else {
+      const winner = allDone1 ? 'Team 1' : 'Team 2';
+      html += `<div class="tanne-winner-banner">${winner} gewinnt!</div>`;
+    }
+  }
+
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="resetTanne()" style="flex:1;">Zurücksetzen</button>
+    <button class="btn" onclick="autoSplitTeams()" style="flex:1;">Zufällig aufteilen</button>
+  </div>`;
+  html += '</div></div>';
+  return html;
+}
+
+function renderTree(cells, teamClass, teamNum) {
+  let html = '';
+  TREE_ROWS.forEach((row, ri) => {
+    html += `<div class="tanne-row">`;
+    row.forEach((val, ci) => {
+      const idx = TREE_ROW_START[ri] + ci;
+      const done = cells[idx];
+      html += `<div class="tanne-cell ${teamClass}-${done?'done':'active'}" onclick="tanneCell(${teamNum},${idx})">${done ? val : val}</div>`;
+    });
+    html += `</div>`;
+  });
+  return html;
+}
+
+function toggleTanne() {
+  state.tannenbaum.open = !state.tannenbaum.open;
+  renderSpiele();
+}
+
+function tanneAssign(s, toTeam) {
+  const tb = state.tannenbaum;
+  tb.team1 = tb.team1.filter(p => p !== s);
+  tb.team2 = tb.team2.filter(p => p !== s);
+  if (toTeam === 1) tb.team1.push(s);
+  else tb.team2.push(s);
+  renderSpiele();
+}
+
+function tanneCell(teamNum, idx) {
+  const cells = teamNum === 1 ? state.tannenbaum.tree1 : state.tannenbaum.tree2;
+  cells[idx] = !cells[idx];
+  if (navigator.vibrate) navigator.vibrate(15);
+  renderSpiele();
+}
+
+function resetTanne() {
+  state.tannenbaum.tree1 = new Array(25).fill(false);
+  state.tannenbaum.tree2 = new Array(25).fill(false);
+  renderSpiele();
+}
+
+function autoSplitTeams() {
+  const shuffled = [...state.spieler].sort(() => Math.random() - 0.5);
+  const half = Math.ceil(shuffled.length / 2);
+  state.tannenbaum.team1 = shuffled.slice(0, half);
+  state.tannenbaum.team2 = shuffled.slice(half);
+  renderSpiele();
+}
+
+function renderResult(g) {
+  const ranked = state.spieler
+    .filter(s => g.scores[s] !== undefined && g.scores[s] !== '')
+    .map(s => ({ name: s, score: parseFloat(g.scores[s]) }))
+    .sort((a, b) => g.mode === 'tief' ? a.score - b.score : b.score - a.score);
+  const n = Math.min(g.loserCount, ranked.length);
+  let html = '<div class="result-list">';
+  ranked.forEach((p, i) => {
+    const isLoser = i >= ranked.length - n;
+    const isTop = i === 0;
+    html += `<div class="result-row${isLoser?' loser':isTop?' top':''}">
+      <span class="result-rank">${i+1}.</span>
+      <span class="result-name">${p.name.trim()}</span>
+      ${isLoser ? '<span class="loser-badge">Verlierer</span>' : isTop ? '<span class="winner-tag">1. Platz</span>' : ''}
+      <span class="result-score">${p.score}</span>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function toggleSpiel(gi) {
+  state.spiele[gi].open = !state.spiele[gi].open;
+  renderSpiele();
+}
+function changeLoser(gi, d) {
+  const g = state.spiele[gi];
+  g.loserCount = Math.max(1, Math.min(state.spieler.length - 1, g.loserCount + d));
+  renderSpiele();
+}
+function setScore(gi, s, val) {
+  state.spiele[gi].scores[s] = val;
+  state.spiele[gi].showResult = false;
+}
+function auswerten(gi) {
+  state.spiele[gi].showResult = true;
+  renderSpiele();
+}
+function resetSpiel(gi) {
+  state.spiele[gi].scores = {};
+  state.spiele[gi].showResult = false;
+  renderSpiele();
+}
+function esc2(s) { return s.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+// Add game modal
+let newGameMode = 'tief';
+function openAddGame() {
+  newGameMode = 'tief';
+  selectMode('tief');
+  document.getElementById('inp-game-name').value = '';
+  document.getElementById('add-game-modal').classList.add('open');
+}
+function closeAddGame() { document.getElementById('add-game-modal').classList.remove('open'); }
+function selectMode(m) {
+  newGameMode = m;
+  document.getElementById('mode-btn-tief').style.background = m==='tief' ? '#1a1a1a' : '';
+  document.getElementById('mode-btn-tief').style.color = m==='tief' ? '#fff' : '';
+  document.getElementById('mode-btn-tief').style.borderColor = m==='tief' ? '#1a1a1a' : '';
+  document.getElementById('mode-btn-hoch').style.background = m==='hoch' ? '#1a1a1a' : '';
+  document.getElementById('mode-btn-hoch').style.color = m==='hoch' ? '#fff' : '';
+  document.getElementById('mode-btn-hoch').style.borderColor = m==='hoch' ? '#1a1a1a' : '';
+}
+function saveNewGame() {
+  const name = document.getElementById('inp-game-name').value.trim();
+  if (!name) return;
+  state.spiele.push({ id: 'game-'+Date.now(), name, mode: newGameMode, loserCount: 3, scores: {}, showResult: false, open: true });
+  closeAddGame();
+  renderSpiele();
+}
+
+// Settings
+let currentSetTab = 'spieler';
+function openSettings() {
+  document.getElementById('settings-modal').classList.add('open');
+  setTab('spieler');
+}
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+function setTab(t) {
+  currentSetTab = t;
+  ['spieler','allgemein','kegel'].forEach(k => {
+    document.getElementById('set-tab-'+k).style.background = k===t ? '#1a1a1a' : '';
+    document.getElementById('set-tab-'+k).style.color = k===t ? '#fff' : '';
+    document.getElementById('set-tab-'+k).style.borderColor = k===t ? '#1a1a1a' : '';
+  });
+  renderSetContent();
+}
+
+function renderSetContent() {
+  const c = document.getElementById('set-content');
+  if (currentSetTab === 'spieler') {
+    let html = '<div>';
+    state.spieler.forEach((s,i) => {
+      html += `<div class="strafe-list-item"><span class="strafe-list-name">${s.trim()}</span><button class="strafe-del" onclick="removeSpieler(${i})">✕</button></div>`;
+    });
+    html += '</div>';
+    html += `<div class="modal-row" style="margin-top:12px;"><input type="text" id="inp-spieler" placeholder="Name..." onkeydown="if(event.key==='Enter')addSpieler()"><button class="btn btn-primary" onclick="addSpieler()" style="width:80px;">+ Add</button></div>`;
+    c.innerHTML = html;
+  } else {
+    const g = currentSetTab;
+    let html = '<div>';
+    state.strafen[g].forEach((st,i) => {
+      html += `<div class="strafe-list-item"><span class="strafe-list-name">${st.name.replace(/\n/g,' ')}</span><span class="strafe-list-price">${st.coins.toFixed(2).replace('.',',')} €</span><button class="strafe-del" onclick="removeStrafe('${g}',${i})">✕</button></div>`;
+    });
+    html += '</div>';
+    html += `<div class="modal-row" style="margin-top:12px;"><input type="text" id="inp-strafe-name" placeholder="Strafenname..." onkeydown="if(event.key==='Enter')addStrafe()"><input type="number" id="inp-strafe-coins" placeholder="€" min="0" step="0.1" value="1.00" style="width:80px;"></div>`;
+    html += `<div class="modal-row"><button class="btn btn-primary" onclick="addStrafe()" style="width:100%;">+ Strafe hinzufügen</button></div>`;
+    c.innerHTML = html;
+  }
+}
+
+function addSpieler() {
+  const inp = document.getElementById('inp-spieler');
+  const v = inp.value.trim();
+  if (!v || state.spieler.includes(v)) return;
+  state.spieler.push(v);
+  inp.value = '';
+  renderAll();
+  renderSetContent();
+}
+function removeSpieler(i) {
+  const s = state.spieler.splice(i,1)[0];
+  for (const g of ['allgemein','kegel']) for (const st of state.strafen[g]) delete state.counts[key(s,g,st.name)];
+  renderAll(); renderSetContent();
+}
+function addStrafe() {
+  const g = currentSetTab;
+  const name = document.getElementById('inp-strafe-name').value.trim();
+  const coins = parseFloat(document.getElementById('inp-strafe-coins').value) || 0;
+  if (!name || state.strafen[g].find(s=>s.name===name)) return;
+  state.strafen[g].push({name, coins});
+  document.getElementById('inp-strafe-name').value = '';
+  renderAll(); renderSetContent();
+}
+function removeStrafe(g, i) {
+  const st = state.strafen[g].splice(i,1)[0];
+  state.spieler.forEach(s => delete state.counts[key(s,g,st.name)]);
+  renderAll(); renderSetContent();
+}
+
+function confirmReset() {
+  if (confirm('Alle Strafen zurücksetzen? Das kann nicht rückgängig gemacht werden.')) {
+    state.counts = {};
+    renderAll();
+  }
+}
+
+renderAll();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
