@@ -261,6 +261,8 @@
   .bj-card-btn:active { background: #f0ede8; }
   .bj-card-btn.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
   .bj-card-btn.selected:active { background: #333; }
+  .bj-card-btn.bj-card-locked { opacity: 0.4; pointer-events: none; }
+  .bj-card-btn.bj-card-locked.selected { opacity: 0.75; }
   .bj-card-sub { font-size: 9px; font-weight: 500; opacity: 0.65; }
   .bj-numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0 5px; }
   .bj-num-btn { height: 42px; border-radius: 8px; border: 1.5px solid #d0cdc5; background: #fff; font-size: 16px; font-weight: 700; cursor: pointer; color: #1a1a1a; }
@@ -1089,20 +1091,27 @@ function autoSplitBis100() {
 
 // ── Blackjack ─────────────────────────────────────────────────
 const BJ_CARDS = [
-  { id: '7',      label: '7',  sub: '',    val: 7  },
-  { id: '8',      label: '8',  sub: '',    val: 8  },
-  { id: '9',      label: '9',  sub: '',    val: 9  },
-  { id: '10',     label: '10', sub: '',    val: 10 },
-  { id: 'bube',   label: 'B',  sub: '= 2', val: 2  },
-  { id: 'dame',   label: 'D',  sub: '= 3', val: 3  },
-  { id: 'koenig', label: 'K',  sub: '= 4', val: 4  },
-  { id: 'ass1',   label: 'A',  sub: '= 1', val: 1  },
-  { id: 'ass11',  label: 'A',  sub: '=11', val: 11 },
+  { id: '7',      label: '7',  sub: '',      val: 7,  isAss: false },
+  { id: '8',      label: '8',  sub: '',      val: 8,  isAss: false },
+  { id: '9',      label: '9',  sub: '',      val: 9,  isAss: false },
+  { id: '10',     label: '10', sub: '',      val: 10, isAss: false },
+  { id: 'bube',   label: 'B',  sub: '= 2',   val: 2,  isAss: false },
+  { id: 'dame',   label: 'D',  sub: '= 3',   val: 3,  isAss: false },
+  { id: 'koenig', label: 'K',  sub: '= 4',   val: 4,  isAss: false },
+  { id: 'ass',    label: 'A',  sub: '1 / 11', val: 0,  isAss: true  },
 ];
 
 function bjInitPlayer(s) {
   if (!state.blackjack.players[s]) {
-    state.blackjack.players[s] = { cardId: null, cardVal: 0, throws: [], total: 0, busted: false, won: false, done: false };
+    // throwsTotal = sum of throws only; total = throwsTotal + cardVal (only valid after reveal)
+    state.blackjack.players[s] = {
+      cardId: null, cardVal: 0,
+      throws: [], throwsTotal: 0, total: 0,
+      done: false, revealed: false,
+      busted: false, won: false,
+      assChoice: null,    // null | 1 | 11 — only relevant when cardId === 'ass'
+      assChoosing: false, // true = Aufdecken was tapped, waiting for 1/11 choice
+    };
   }
 }
 
@@ -1111,12 +1120,12 @@ function renderBlackjackCard() {
   const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
   aktiveSpieler.forEach(s => bjInitPlayer(s));
 
-  const bustCount  = aktiveSpieler.filter(s => bj.players[s]?.busted).length;
-  const winCount   = aktiveSpieler.filter(s => bj.players[s]?.won).length;
-  const doneCount  = aktiveSpieler.filter(s => { const p = bj.players[s]; return p && (p.busted || p.won || p.done); }).length;
-  const metaLabel  = aktiveSpieler.length === 0 ? 'Keine Spieler' :
-    doneCount > 0 ? `${doneCount}/${aktiveSpieler.length} fertig · ${bustCount} überworfen · ${winCount}× 21` :
-    `${aktiveSpieler.length} Spieler`;
+  const revealedCount = aktiveSpieler.filter(s => bj.players[s]?.revealed).length;
+  const bustCount     = aktiveSpieler.filter(s => bj.players[s]?.busted).length;
+  const winCount      = aktiveSpieler.filter(s => bj.players[s]?.won).length;
+  const metaLabel = revealedCount > 0
+    ? `${revealedCount}/${aktiveSpieler.length} aufgedeckt · ${bustCount} überworfen · ${winCount}× 21`
+    : `${aktiveSpieler.length} Spieler — Karte wählen, werfen, aufdecken`;
 
   let html = `<div class="spiel-card">
     <div class="spiel-header" onclick="toggleBlackjack()">
@@ -1142,46 +1151,97 @@ function renderBlackjackCard() {
   aktiveSpieler.forEach(s => {
     const p = bj.players[s];
     const cardSelected = p.cardId !== null;
-    const isActive = cardSelected && !p.busted && !p.won && !p.done;
+    // active = has card, not yet done/revealed/busted/won
+    const isActive = cardSelected && !p.done && !p.revealed && !p.busted && !p.won;
 
+    // --- status badge & display ---
     let statusHtml = '', totalClass = '';
-    if (p.busted)      { statusHtml = `<span class="bj-status bust">ÜBER!</span>`;  totalClass = ' bust'; }
-    else if (p.won)    { statusHtml = `<span class="bj-status win21">21! ♠</span>`; totalClass = ' win';  }
-    else if (p.done)   { statusHtml = `<span class="bj-status done-st">Steht</span>`; }
+    if (p.busted)          { statusHtml = `<span class="bj-status bust">ÜBER!</span>`;   totalClass = ' bust'; }
+    else if (p.won)        { statusHtml = `<span class="bj-status win21">21! ♠</span>`;  totalClass = ' win';  }
+    else if (p.revealed)   { statusHtml = `<span class="bj-status done-st">Steht</span>`; }
+    else if (p.done)       { statusHtml = `<span class="bj-status done-st">Fertig</span>`; }
     else if (cardSelected) { statusHtml = `<span class="bj-status playing">Spielt</span>`; }
 
-    const totalDisplay = cardSelected ? p.total : '–';
+    // During throws: show throws sum only (card hidden). After reveal: show true total.
+    const displayVal = !cardSelected ? '–'
+      : (p.revealed || p.busted || p.won) ? p.total
+      : p.throwsTotal > 0 ? `${p.throwsTotal}` : '?';
+
+    // History line
     let histParts = [];
-    if (cardSelected) {
+    if (p.revealed && cardSelected) {
       const c = BJ_CARDS.find(c => c.id === p.cardId);
-      histParts.push(c ? `${c.label}${c.sub.replace(/\s/g,'')}` : '?');
       p.throws.forEach(t => histParts.push(String(t)));
+      const cardValDisplay = c?.isAss ? p.assChoice : p.cardVal;
+      const cardLabel = c ? `${c.label}(${cardValDisplay})` : '?';
+      histParts.push(cardLabel);
+    } else if (cardSelected && p.throws.length > 0) {
+      p.throws.forEach(t => histParts.push(String(t)));
+      histParts.push(p.cardId === 'ass' ? 'A(?)' : '?');
     }
-    const histStr = histParts.length > 1 ? histParts.join(' + ') + ` = ${p.total}` :
-                    histParts.length === 1 ? `Karte: ${histParts[0]} = ${p.total}` : '';
+    const histStr = histParts.length > 1
+      ? histParts.join(' + ') + (p.revealed ? ` = ${p.total}` : '')
+      : '';
 
     html += `<div class="bj-player-section">
       <div class="bj-player-header">
         <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
         <span class="bj-player-name">${s.trim()}</span>
-        <span class="bj-total${totalClass}">${totalDisplay}</span>
+        <span class="bj-total${totalClass}">${displayVal}</span>
         ${statusHtml}
-      </div>
-      <div class="bj-card-picker">`;
-    BJ_CARDS.forEach(card => {
-      const sel = p.cardId === card.id;
-      html += `<button class="bj-card-btn${sel?' selected':''}" onclick="bjPickCard('${esc(s)}','${card.id}')">${card.label}<span class="bj-card-sub">${card.sub || card.val}</span></button>`;
-    });
-    html += `</div>`;
+      </div>`;
 
+    // Card picker — only shown if no card selected yet
+    if (!cardSelected) {
+      html += `<div class="bj-card-picker">`;
+      BJ_CARDS.forEach(card => {
+        html += `<button class="bj-card-btn" onclick="bjPickCard('${esc(s)}','${card.id}')">${card.label}<span class="bj-card-sub">${card.sub || card.val}</span></button>`;
+      });
+      html += `</div>`;
+    } else if (p.revealed || p.busted || p.won) {
+      // After reveal: show the actual card
+      const c = BJ_CARDS.find(c => c.id === p.cardId);
+      const valLabel = c?.isAss ? `A = ${p.assChoice}` : `${c?.label} = ${p.cardVal}`;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0 2px;">
+        <span style="font-size:22px;">🂠</span>
+        <span style="font-size:13px;font-weight:600;color:#555;">${valLabel}</span>
+      </div>`;
+    } else {
+      // Card selected but not yet revealed — show face-down placeholder + change option
+      const canChange = p.throws.length === 0 && !p.done;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:4px 0 6px;">
+        <span style="font-size:28px;line-height:1;">🂠</span>
+        <span style="font-size:13px;color:#888;">Karte liegt verdeckt</span>
+        ${canChange ? `<button class="btn" style="font-size:11px;padding:4px 10px;margin-left:auto;" onclick="bjClearCard('${esc(s)}')">Ändern</button>` : ''}
+      </div>`;
+    }
+
+    // Numpad — only while active
     if (isActive) {
       html += `<div class="bj-numpad">`;
       for (let n = 1; n <= 10; n++) {
         html += `<button class="bj-num-btn" onclick="bjThrow('${esc(s)}',${n})">${n}</button>`;
       }
       html += `</div>`;
-      html += `<button class="btn" style="width:100%;margin-top:2px;height:40px;" onclick="bjStehen('${esc(s)}')">Stehen — ${p.total} Punkte</button>`;
+      html += `<button class="btn" style="width:100%;margin-top:4px;height:42px;font-weight:600;" onclick="bjStehen('${esc(s)}')">Stehen (Würfe: ${p.throwsTotal})</button>`;
     }
+
+    // Aufdecken / Ass-choice — when done (or has throws) but not yet revealed
+    if ((p.done || p.throws.length > 0) && cardSelected && !p.revealed && !p.busted && !p.won) {
+      if (p.cardId === 'ass' && p.assChoosing) {
+        // Ass: Aufdecken was tapped — now choose 1 or 11
+        html += `<div style="margin-top:8px;">
+          <div style="font-size:12px;font-weight:600;color:#888;text-align:center;margin-bottom:6px;">Welchen Wert hat dein Ass?</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" style="flex:1;height:48px;font-size:20px;font-weight:800;" onclick="bjChooseAss('${esc(s)}',1)">1</button>
+            <button class="btn btn-primary" style="flex:1;height:48px;font-size:20px;font-weight:800;" onclick="bjChooseAss('${esc(s)}',11)">11</button>
+          </div>
+        </div>`;
+      } else {
+        html += `<button class="btn btn-primary" style="width:100%;margin-top:6px;height:46px;font-size:16px;font-weight:700;letter-spacing:0.02em;" onclick="bjAufdecken('${esc(s)}')">🂠 Aufdecken</button>`;
+      }
+    }
+
     if (histStr) html += `<div class="bj-throws-history">${histStr}</div>`;
     html += `</div>`;
   });
@@ -1190,12 +1250,12 @@ function renderBlackjackCard() {
   if (bj.showResult) html += renderBJResult(aktiveSpieler);
 
   // Bottom actions
-  const allDone = aktiveSpieler.length > 0 && aktiveSpieler.every(s => {
-    const p = bj.players[s]; return p && (p.busted || p.won || p.done);
+  const allRevealed = aktiveSpieler.length > 0 && aktiveSpieler.every(s => {
+    const p = bj.players[s]; return p && (p.revealed || p.busted || p.won);
   });
   html += `<div style="display:flex;gap:8px;margin-top:14px;">
     <button class="btn btn-danger" onclick="bjReset()" style="flex:1;">Zurücksetzen</button>
-    ${allDone && !bj.showResult ? `<button class="btn btn-primary" onclick="bjAuswerten()" style="flex:1;">Auswerten</button>` : ''}
+    ${allRevealed && !bj.showResult ? `<button class="btn btn-primary" onclick="bjAuswerten()" style="flex:1;">Auswerten</button>` : ''}
   </div>`;
 
   html += '</div></div>';
@@ -1212,16 +1272,14 @@ function renderBJResult(spieler) {
   const loserStart = Math.max(0, others.length - bj.loserCount);
 
   let html = '<div class="result-list" style="margin-top:14px;">';
-
   won21.forEach(s => {
     html += `<div class="bj-result-row win-row">
       <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
       <span style="flex:1;font-size:14px;font-weight:600;">${s.trim()}</span>
-      <span class="bj-result-label" style="background:#e8fde8;color:#27ae60;">Gewonnen!</span>
+      <span class="bj-result-label" style="background:#e8fde8;color:#27ae60;">21 — Gewonnen!</span>
       <span style="font-size:16px;font-weight:800;color:#27ae60;">21</span>
     </div>`;
   });
-
   others.forEach((s, i) => {
     const isLoser = i >= loserStart;
     const score = bj.players[s]?.total || 0;
@@ -1232,7 +1290,6 @@ function renderBJResult(spieler) {
       <span style="font-size:16px;font-weight:700;">${score}</span>
     </div>`;
   });
-
   busted.forEach(s => {
     const score = bj.players[s]?.total || 0;
     html += `<div class="bj-result-row bust-row">
@@ -1242,7 +1299,6 @@ function renderBJResult(spieler) {
       <span style="font-size:16px;font-weight:700;color:#c0392b;">${score}</span>
     </div>`;
   });
-
   html += '</div>';
   return html;
 }
@@ -1258,16 +1314,20 @@ function bjChangeLoser(d) {
 function bjPickCard(s, cardId) {
   bjInitPlayer(s);
   const p = state.blackjack.players[s];
+  if (p.done || p.revealed || p.busted || p.won) return; // locked once done
   const card = BJ_CARDS.find(c => c.id === cardId);
   if (!card) return;
-  // Re-pick resets throws
   p.cardId = cardId;
-  p.cardVal = card.val;
+  p.cardVal = card.isAss ? 0 : card.val; // Ass value decided at reveal
   p.throws = [];
-  p.total = card.val;
-  p.busted = p.total > 21;
-  p.won = p.total === 21;
+  p.throwsTotal = 0;
+  p.total = 0;
   p.done = false;
+  p.revealed = false;
+  p.busted = false;
+  p.won = false;
+  p.assChoice = null;
+  p.assChoosing = false;
   state.blackjack.showResult = false;
   if (navigator.vibrate) navigator.vibrate(15);
   renderSpiele();
@@ -1275,9 +1335,48 @@ function bjPickCard(s, cardId) {
 function bjThrow(s, n) {
   bjInitPlayer(s);
   const p = state.blackjack.players[s];
-  if (!p.cardId || p.busted || p.won || p.done) return;
+  if (!p.cardId || p.done || p.revealed || p.busted || p.won) return;
   p.throws.push(n);
-  p.total += n;
+  p.throwsTotal += n;
+  if (navigator.vibrate) navigator.vibrate(15);
+  renderSpiele();
+}
+function bjStehen(s) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (!p.cardId || p.done || p.revealed) return;
+  p.done = true;
+  if (navigator.vibrate) navigator.vibrate(25);
+  renderSpiele();
+}
+function bjClearCard(s) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (p.throws.length > 0 || p.done || p.revealed) return; // too late
+  p.cardId = null; p.cardVal = 0; p.assChoice = null; p.assChoosing = false;
+  renderSpiele();
+}
+function bjChooseAss(s, val) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (p.cardId !== 'ass' || p.revealed) return;
+  p.assChoice = val;
+  p.cardVal = val;
+  // Now trigger reveal
+  bjAufdecken(s);
+}
+function bjAufdecken(s) {
+  bjInitPlayer(s);
+  const p = state.blackjack.players[s];
+  if (!p.cardId || p.revealed) return;
+  // Ass: first ask for 1 or 11
+  if (p.cardId === 'ass' && p.assChoice === null) {
+    p.assChoosing = true;
+    renderSpiele();
+    return;
+  }
+  p.revealed = true;
+  p.total = p.throwsTotal + p.cardVal;
   if (p.total > 21) {
     p.busted = true;
     if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
@@ -1285,16 +1384,8 @@ function bjThrow(s, n) {
     p.won = true;
     if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
   } else {
-    if (navigator.vibrate) navigator.vibrate(15);
+    if (navigator.vibrate) navigator.vibrate(30);
   }
-  renderSpiele();
-}
-function bjStehen(s) {
-  bjInitPlayer(s);
-  const p = state.blackjack.players[s];
-  if (!p.cardId || p.busted || p.won) return;
-  p.done = true;
-  if (navigator.vibrate) navigator.vibrate(25);
   renderSpiele();
 }
 function bjAuswerten() {
