@@ -197,6 +197,31 @@
   .abr-milestone.second-done { background: #d4edda; color: #155724; border-color: #28a745; }
   .abr-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
   .abr-crown { font-size: 20px; display: block; margin-bottom: 4px; }
+
+  /* Bis 100 */
+  .b100-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 8px; }
+  .b100-team-box { border-radius: 10px; padding: 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: background 0.2s; }
+  .b100-team-box.t1 { background: #dceeff; border: 1.5px solid #aaccee; }
+  .b100-team-box.t2 { background: #ffdddd; border: 1.5px solid #eeaaaa; }
+  .b100-team-box.flash-reset { background: #ff4444 !important; border-color: #cc0000 !important; }
+  .b100-team-box.won { background: #d4edda; border-color: #28a745; }
+  .b100-team-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .b100-team-box.t1 .b100-team-name { color: #1a6bc0; }
+  .b100-team-box.t2 .b100-team-name { color: #c01a1a; }
+  .b100-team-box.won .b100-team-name { color: #155724; }
+  .b100-score { font-size: 52px; font-weight: 800; line-height: 1; color: #1a1a1a; }
+  .b100-team-box.won .b100-score { color: #155724; }
+  .b100-score-label { font-size: 11px; color: #888; margin-top: -4px; }
+  .b100-stats { display: flex; gap: 12px; }
+  .b100-stat { text-align: center; }
+  .b100-stat-num { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .b100-stat-label { font-size: 10px; color: #888; line-height: 1.2; }
+  .b100-numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; width: 100%; }
+  .b100-num-btn { height: 40px; border-radius: 7px; border: 1.5px solid rgba(0,0,0,0.12); background: rgba(255,255,255,0.6); font-size: 16px; font-weight: 700; cursor: pointer; color: #1a1a1a; }
+  .b100-num-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.9); }
+  .b100-num-btn.disabled { opacity: 0.35; pointer-events: none; }
+  .b100-reset-msg { font-size: 12px; font-weight: 700; color: #c0392b; text-align: center; padding: 4px 0; min-height: 20px; }
+  .b100-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 15px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -204,6 +229,7 @@
 <div class="topbar">
   <span class="topbar-title">Kegel-Strafen</span>
   <div class="topbar-actions">
+    <button class="btn" id="btn-pdf" onclick="exportPDF()">PDF</button>
     <button class="btn" onclick="openSettings()">Einstellungen</button>
     <button class="btn btn-danger" onclick="confirmReset()">Reset</button>
   </div>
@@ -294,6 +320,15 @@ let state = {
     teams: [
       { throws: 0, first: false, done: false },
       { throws: 0, first: false, done: false },
+    ],
+  },
+  bis100: {
+    open: false,
+    team1: [],
+    team2: [],
+    teams: [
+      { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
+      { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
     ],
   },
   strafen: {
@@ -497,6 +532,7 @@ function renderSpiele() {
   });
   html += renderTannenbaumCard();
   html += renderAbraeumenCard();
+  html += renderBis100Card();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -766,6 +802,158 @@ function autoSplitAbr() {
   renderSpiele();
 }
 
+// ── Bis 100 ──────────────────────────────────────────────────
+const SCHNAPSZAHLEN = new Set([11,22,33,44,55,66,77,88,99]);
+
+function renderBis100Card() {
+  const b = state.bis100;
+  const t1 = b.teams[0], t2 = b.teams[1];
+  const anyWon = t1.won || t2.won;
+
+  let metaLabel = 'Spieler noch nicht eingeteilt';
+  if (b.team1.length || b.team2.length) {
+    metaLabel = `Team 1: ${b.team1.length} · Team 2: ${b.team2.length} Spieler`;
+  }
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleBis100()">
+      <div>
+        <div class="spiel-title">Bis 100</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${b.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${b.open?' open':''}">`;
+
+  // Team assignment
+  html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
+  html += `<div class="tanne-teams">
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      ${b.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="b100Assign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+    <div class="tanne-team-col">
+      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      ${b.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+    </div>
+  </div>`;
+
+  const unassigned = state.spieler.filter(s => !b.team1.includes(s) && !b.team2.includes(s));
+  if (unassigned.length) {
+    html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
+      <div class="tanne-players-row">
+        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ T1</span></div>`).join('')}
+      </div>`;
+  }
+
+  // Team boxes
+  html += `<div class="b100-teams">`;
+  [0, 1].forEach(i => {
+    const t = b.teams[i];
+    const cls = i === 0 ? 't1' : 't2';
+    const label = i === 0 ? 'Team 1' : 'Team 2';
+    const flashCls = t.flashMsg ? ' flash-reset' : '';
+    const wonCls = t.won ? ' won' : '';
+    const btnDisabled = t.won ? ' disabled' : '';
+
+    html += `<div class="b100-team-box ${cls}${flashCls}${wonCls}" id="b100-box-${i}">
+      <div class="b100-team-name">${label}</div>
+      <div class="b100-score">${t.won ? '100+' : t.score}</div>
+      <div class="b100-score-label">${t.won ? 'Fertig!' : 'Punkte'}</div>
+      <div class="b100-stats">
+        <div class="b100-stat">
+          <div class="b100-stat-num">${t.throwsSinceReset}</div>
+          <div class="b100-stat-label">seit letztem Reset</div>
+        </div>
+        <div class="b100-stat">
+          <div class="b100-stat-num">${t.totalThrows}</div>
+          <div class="b100-stat-label">gesamt</div>
+        </div>
+      </div>
+      <div class="b100-reset-msg">${t.flashMsg || ''}</div>
+      <div class="b100-numpad">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n =>
+          `<button class="b100-num-btn${btnDisabled}" onclick="b100Add(${i},${n})">${n}</button>`
+        ).join('')}
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Winner banner
+  if (anyWon) {
+    let winText = '';
+    if (t1.won && t2.won) {
+      if (t1.totalThrows === t2.totalThrows) winText = 'Unentschieden!';
+      else winText = (t1.totalThrows < t2.totalThrows ? 'Team 1' : 'Team 2') + ' gewinnt mit weniger Würfen!';
+    } else {
+      winText = (t1.won ? 'Team 1' : 'Team 2') + ' hat 100 erreicht!';
+    }
+    html += `<div class="b100-winner-banner">${winText}</div>`;
+  }
+
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="resetBis100()" style="flex:1;">Zurücksetzen</button>
+    <button class="btn" onclick="autoSplitBis100()" style="flex:1;">Zufällig aufteilen</button>
+  </div>`;
+
+  html += '</div></div>';
+  return html;
+}
+
+function toggleBis100() {
+  state.bis100.open = !state.bis100.open;
+  renderSpiele();
+}
+function b100Assign(s, toTeam) {
+  const b = state.bis100;
+  b.team1 = b.team1.filter(p => p !== s);
+  b.team2 = b.team2.filter(p => p !== s);
+  if (toTeam === 1) b.team1.push(s);
+  else b.team2.push(s);
+  renderSpiele();
+}
+function b100Add(i, n) {
+  const t = state.bis100.teams[i];
+  if (t.won) return;
+  const newScore = t.score + n;
+  t.totalThrows++;
+  t.throwsSinceReset++;
+  if (SCHNAPSZAHLEN.has(newScore)) {
+    t.score = 0;
+    t.throwsSinceReset = 0;
+    t.flashMsg = `${newScore} — Schnapszahl! Zurück auf 0`;
+    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+    renderSpiele();
+    setTimeout(() => { t.flashMsg = ''; renderSpiele(); }, 2000);
+  } else if (newScore >= 100) {
+    t.score = newScore;
+    t.won = true;
+    t.flashMsg = '';
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+    renderSpiele();
+  } else {
+    t.score = newScore;
+    t.flashMsg = '';
+    if (navigator.vibrate) navigator.vibrate(15);
+    renderSpiele();
+  }
+}
+function resetBis100() {
+  state.bis100.teams = [
+    { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
+    { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
+  ];
+  renderSpiele();
+}
+function autoSplitBis100() {
+  const shuffled = [...state.spieler].sort(() => Math.random() - 0.5);
+  const half = Math.ceil(shuffled.length / 2);
+  state.bis100.team1 = shuffled.slice(0, half);
+  state.bis100.team2 = shuffled.slice(half);
+  renderSpiele();
+}
+
 function renderResult(g) {
   const ranked = state.spieler
     .filter(s => g.scores[s] !== undefined && g.scores[s] !== '')
@@ -914,6 +1102,195 @@ function confirmReset() {
 }
 
 renderAll();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script>
+function exportPDF() {
+  const btn = document.getElementById('btn-pdf');
+  btn.textContent = '...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const date = new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+      const pageW = doc.internal.pageSize.getWidth();
+
+      // ── Helper: draw one penalty table ──────────────────────
+      function drawStrafeTable(title, group, startY) {
+        const strafen = state.strafen[group];
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(30, 30, 30);
+        doc.text(title, 14, startY);
+
+        // Build columns: Name + each Strafe + Summe
+        const colW = Math.min(22, (pageW - 14 - 14 - 28 - 28) / strafen.length);
+        const head = [
+          [
+            { content: 'Name', styles: { halign: 'left', fillColor: [245,244,240], textColor: [80,80,80] } },
+            ...strafen.map(st => ({
+              content: st.name.replace(/\n/g,' '),
+              styles: { halign: 'center', fillColor: [245,244,240], textColor: [30,30,30], fontSize: 8 }
+            })),
+            { content: 'Summe', styles: { halign: 'right', fillColor: [232,229,222], textColor: [30,30,30] } },
+          ],
+          [
+            { content: '', styles: { fillColor: [250,250,247] } },
+            ...strafen.map(st => ({
+              content: st.coins.toFixed(2).replace('.',',') + ' €',
+              styles: { halign: 'center', fillColor: [250,250,247], textColor: [140,140,140], fontSize: 7 }
+            })),
+            { content: '', styles: { fillColor: [245,244,240] } },
+          ]
+        ];
+
+        const body = state.spieler.map(s => {
+          const rowTotal = strafen.reduce((sum, st) => sum + getCount(s, group, st.name) * st.coins, 0);
+          return [
+            { content: s.trim(), styles: { fontStyle: 'bold' } },
+            ...strafen.map(st => {
+              const c = getCount(s, group, st.name);
+              return { content: c > 0 ? String(c) : '', styles: { halign: 'center' } };
+            }),
+            { content: rowTotal > 0 ? fmtEuro(rowTotal) : '–', styles: { halign: 'right', fontStyle: 'bold' } },
+          ];
+        });
+
+        // Totals row
+        const totalRow = [
+          { content: 'Gesamt', styles: { fontStyle: 'bold', fillColor: [240,237,232], textColor: [100,100,100], fontSize: 8 } },
+          ...strafen.map(st => {
+            const colSum = state.spieler.reduce((sum, s) => sum + getCount(s, group, st.name), 0);
+            return { content: colSum > 0 ? String(colSum) : '', styles: { halign: 'center', fillColor: [240,237,232], textColor: [100,100,100], fontSize: 8 } };
+          }),
+          {
+            content: fmtEuro(state.spieler.reduce((sum,s) => sum + strafen.reduce((s2,st) => s2 + getCount(s,group,st.name)*st.coins, 0), 0)),
+            styles: { halign: 'right', fontStyle: 'bold', fillColor: [232,229,222], textColor: [30,30,30], fontSize: 8 }
+          },
+        ];
+        body.push(totalRow);
+
+        doc.autoTable({
+          head,
+          body,
+          startY: startY + 5,
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 9, cellPadding: 2.5, lineColor: [224,221,213], lineWidth: 0.2 },
+          headStyles: { fontSize: 8, cellPadding: 2 },
+          columnStyles: { 0: { cellWidth: 28 }, [strafen.length + 1]: { cellWidth: 24 } },
+          theme: 'grid',
+          tableLineColor: [200,197,190],
+          tableLineWidth: 0.3,
+        });
+
+        return doc.lastAutoTable.finalY + 8;
+      }
+
+      // ── Page 1: Header + Allgemein + Kegel ──────────────────
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(26, 92, 42);
+      doc.text('Kegel-Strafen', 14, 16);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(130, 130, 130);
+      doc.text(date, pageW - 14, 16, { align: 'right' });
+      doc.setDrawColor(200, 197, 190);
+      doc.line(14, 19, pageW - 14, 19);
+
+      let y = 25;
+      y = drawStrafeTable('Allgemeine Strafen', 'allgemein', y);
+
+      // Start new page if not enough space for Kegel table
+      if (y > 155) {
+        doc.addPage();
+        y = 14;
+      }
+      y = drawStrafeTable('Kegel-Strafen', 'kegel', y);
+
+      // ── Page 2: Zusammenfassung ──────────────────────────────
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(26, 92, 42);
+      doc.text('Zusammenfassung', 14, 16);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(130, 130, 130);
+      doc.text(date, pageW - 14, 16, { align: 'right' });
+      doc.setDrawColor(200, 197, 190);
+      doc.line(14, 19, pageW - 14, 19);
+
+      const ranked = [...state.spieler]
+        .map(s => ({ name: s, total: getPlayerTotal(s) }))
+        .sort((a, b) => b.total - a.total);
+
+      const grand = ranked.reduce((s, p) => s + p.total, 0);
+
+      const summHead = [[
+        { content: '#', styles: { halign: 'center', fillColor: [245,244,240], textColor: [80,80,80] } },
+        { content: 'Spieler', styles: { fillColor: [245,244,240], textColor: [30,30,30] } },
+        { content: 'Details', styles: { fillColor: [245,244,240], textColor: [80,80,80] } },
+        { content: 'Betrag', styles: { halign: 'right', fillColor: [232,229,222], textColor: [30,30,30] } },
+      ]];
+
+      const summBody = ranked.map((p, i) => {
+        const details = [];
+        for (const g of ['allgemein','kegel']) {
+          for (const st of state.strafen[g]) {
+            const c = getCount(p.name, g, st.name);
+            if (c > 0) details.push(`${st.name.replace(/\n/g,' ')}: ${c}×`);
+          }
+        }
+        return [
+          { content: String(i + 1), styles: { halign: 'center', textColor: [130,130,130] } },
+          { content: p.name.trim(), styles: { fontStyle: 'bold' } },
+          { content: details.join('  ·  ') || '–', styles: { textColor: [120,120,120], fontSize: 8 } },
+          { content: p.total > 0 ? fmtEuro(p.total) : '–', styles: { halign: 'right', fontStyle: 'bold' } },
+        ];
+      });
+
+      // Grand total row
+      summBody.push([
+        { content: '', styles: { fillColor: [232,229,222] } },
+        { content: 'Gesamtkasse', styles: { fontStyle: 'bold', fillColor: [232,229,222] } },
+        { content: '', styles: { fillColor: [232,229,222] } },
+        { content: fmtEuro(grand), styles: { halign: 'right', fontStyle: 'bold', fillColor: [232,229,222], fontSize: 12 } },
+      ]);
+
+      doc.autoTable({
+        head: summHead,
+        body: summBody,
+        startY: 24,
+        margin: { left: 14, right: 14 },
+        styles: { fontSize: 10, cellPadding: 3, lineColor: [224,221,213], lineWidth: 0.2 },
+        columnStyles: { 0: { cellWidth: 10 }, 3: { cellWidth: 28 } },
+        theme: 'grid',
+        tableLineColor: [200,197,190],
+        tableLineWidth: 0.3,
+      });
+
+      // Page numbers
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(180,180,180);
+        doc.text(`Seite ${i} / ${pageCount}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+      }
+
+      doc.save(`kegel-strafen-${date.replace(/\./g,'-')}.pdf`);
+    } catch(e) {
+      alert('PDF konnte nicht erstellt werden. Bitte stelle sicher, dass du online bist (für die erste Nutzung).');
+      console.error(e);
+    }
+    btn.textContent = 'PDF';
+    btn.disabled = false;
+  }, 50);
+}
 </script>
 <script>
 if ('serviceWorker' in navigator) {
