@@ -163,6 +163,16 @@
   .stepper-val { font-size: 16px; font-weight: 600; min-width: 20px; text-align: center; }
   .add-game-card { background: #fff; border-radius: 10px; border: 1px dashed #d0cdc5; padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 12px; color: #888; font-size: 14px; font-weight: 500; }
   .add-game-card:active { background: #f5f4f0; }
+  .spiel-desc { font-size: 13px; color: #555; line-height: 1.55; background: #f5f4f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; border-left: 3px solid #1a5c2a; }
+  .team-names-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .team-name-field { display: flex; flex-direction: column; gap: 3px; }
+  .team-name-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .team-name-label.t1 { color: #1a6bc0; }
+  .team-name-label.t2 { color: #c01a1a; }
+  .team-name-input { height: 36px; border: 1.5px solid #d0cdc5; border-radius: 8px; padding: 0 10px; font-size: 14px; font-weight: 600; background: #fff; color: #1a1a1a; }
+  .team-name-input.t1 { border-color: #aaccee; background: #f5f9ff; color: #1a6bc0; }
+  .team-name-input.t2 { border-color: #eeaaaa; background: #fff5f5; color: #c01a1a; }
+  .team-name-input:focus { outline: none; border-color: #888; }
 
   /* Tannenbaum */
   .tanne-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
@@ -387,11 +397,14 @@ let state = {
   spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
   anwesend: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
   spiele: [
-    { id: 'hohe-hausnummer',  name: 'Hohe Hausnummer',  mode: 'hoch', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false },
-    { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'tief', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false },
+    { id: 'hohe-hausnummer',  name: 'Hohe Hausnummer',  mode: 'hoch', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false,
+      desc: 'Jeder Spieler hat 3 Würfe. Nach jedem Wurf entscheidet der Kegler, ob die Punktzahl an die erste, mittlere oder letzte Stelle kommt — die gewählte Position darf danach nicht mehr geändert werden. Wenn alle geworfen haben auf „Auswerten" drücken. Die Spieler mit der <strong>niedrigsten Hausnummer</strong> verlieren.' },
+    { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'tief', type: 'hausnummer', loserCount: 3, scores: {}, showResult: false,
+      desc: 'Gleiche Regeln wie Hohe Hausnummer — 3 Würfe, nach jedem Wurf wird die Stelle (vorne, mitte, hinten) festgelegt. Die gewählte Reihenfolge darf nicht geändert werden. Die Spieler mit der <strong>höchsten Hausnummer</strong> verlieren.' },
   ],
   tannenbaum: {
     open: false,
+    teamName1: 'Team 1', teamName2: 'Team 2',
     team1: [],
     team2: [],
     tree1: new Array(25).fill(false),
@@ -399,6 +412,7 @@ let state = {
   },
   abräumen: {
     open: false,
+    teamName1: 'Team 1', teamName2: 'Team 2',
     team1: [],
     team2: [],
     teams: [
@@ -408,6 +422,7 @@ let state = {
   },
   bis100: {
     open: false,
+    teamName1: 'Team 1', teamName2: 'Team 2',
     team1: [],
     team2: [],
     teams: [
@@ -680,6 +695,7 @@ function renderSpiele() {
         <span class="spiel-chevron${g.open?' open':''}" id="chev-${gi}">&#8964;</span>
       </div>
       <div class="spiel-body${g.open?' open':''}" id="body-${gi}">
+        ${g.desc ? `<div class="spiel-desc">${g.desc}</div>` : ''}
         <div class="loser-count-row">
           <span class="loser-count-label">Anzahl Verlierer</span>
           <div class="stepper">
@@ -737,8 +753,9 @@ function renderTannenbaumCard() {
   const tb = state.tannenbaum;
   const chevron = `<span class="spiel-chevron${tb.open?' open':''}"">&#8964;</span>`;
   const assigned1 = tb.team1.length, assigned2 = tb.team2.length;
+  const n1 = tb.teamName1||'Team 1', n2 = tb.teamName2||'Team 2';
   const metaLabel = (assigned1+assigned2 > 0)
-    ? `Team 1: ${assigned1} Spieler · Team 2: ${assigned2} Spieler`
+    ? `${n1}: ${assigned1} Spieler · ${n2}: ${assigned2} Spieler`
     : 'Spieler noch nicht eingeteilt';
   let html = `<div class="spiel-card">
     <div class="spiel-header" onclick="toggleTanne()">
@@ -748,17 +765,30 @@ function renderTannenbaumCard() {
       </div>
       ${chevron}
     </div>
-    <div class="spiel-body${tb.open?' open':''}">`;
+    <div class="spiel-body${tb.open?' open':''}">
+    <div class="spiel-desc">Teilt die Spieler auf 2 Teams auf oder drückt auf „Zufällig aufteilen". Der erste Spieler von Team 1 wirft und tippt auf die Zahl, die er geworfen hat. Dann ist der erste Spieler von Team 2 dran. Sollten alle Zahlen einer Gruppe bereits weggestrichen sein, tippt ihr die Zahl beim gegnerischen Team an. Ziel: den eigenen Tannenbaum <strong>zuerst vollständig abräumen</strong>.</div>`;
+
+  // Team name inputs
+  html += `<div class="team-names-row">
+    <div class="team-name-field">
+      <span class="team-name-label t1">Teamname 1</span>
+      <input class="team-name-input t1" type="text" maxlength="20" value="${esc(n1)}" oninput="state.tannenbaum.teamName1=this.value;renderSpiele()" placeholder="Team 1">
+    </div>
+    <div class="team-name-field">
+      <span class="team-name-label t2">Teamname 2</span>
+      <input class="team-name-input t2" type="text" maxlength="20" value="${esc(n2)}" oninput="state.tannenbaum.teamName2=this.value;renderSpiele()" placeholder="Team 2">
+    </div>
+  </div>`;
 
   // Team assignment
   html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      <div class="tanne-team-label tanne-team1-label">${n1}</div>
       ${tb.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="tanneAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      <div class="tanne-team-label tanne-team2-label">${n2}</div>
       ${tb.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="tanneAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
@@ -779,12 +809,12 @@ function renderTannenbaumCard() {
 
   html += `<div class="tanne-trees">
     <div class="tanne-tree-wrap">
-      <div class="tanne-tree-title t1">Team 1</div>
+      <div class="tanne-tree-title t1">${n1}</div>
       ${renderTree(tb.tree1, 't1', 1)}
       <div class="tanne-progress">${done1} / 25</div>
     </div>
     <div class="tanne-tree-wrap">
-      <div class="tanne-tree-title t2">Team 2</div>
+      <div class="tanne-tree-title t2">${n2}</div>
       ${renderTree(tb.tree2, 't2', 2)}
       <div class="tanne-progress">${done2} / 25</div>
     </div>
@@ -794,8 +824,7 @@ function renderTannenbaumCard() {
     if (allDone1 && allDone2) {
       html += `<div class="tanne-winner-banner">Unentschieden!</div>`;
     } else {
-      const winner = allDone1 ? 'Team 1' : 'Team 2';
-      html += `<div class="tanne-winner-banner">${winner} gewinnt!</div>`;
+      html += `<div class="tanne-winner-banner">${allDone1 ? n1 : n2} gewinnt!</div>`;
     }
   }
 
@@ -863,9 +892,10 @@ function renderAbraeumenCard() {
   const bothDone = t1.done && t2.done;
   const anyDone = t1.done || t2.done;
 
+  const an1 = ab.teamName1||'Team 1', an2 = ab.teamName2||'Team 2';
   let metaLabel = 'Spieler noch nicht eingeteilt';
   if (ab.team1.length || ab.team2.length) {
-    metaLabel = `Team 1: ${ab.team1.length} · Team 2: ${ab.team2.length} Spieler`;
+    metaLabel = `${an1}: ${ab.team1.length} · ${an2}: ${ab.team2.length} Spieler`;
   }
 
   let html = `<div class="spiel-card">
@@ -878,15 +908,27 @@ function renderAbraeumenCard() {
     </div>
     <div class="spiel-body${ab.open?' open':''}">`;
 
-  // Team assignment (same pattern as Tannenbaum)
+  // Team name inputs
+  html += `<div class="team-names-row">
+    <div class="team-name-field">
+      <span class="team-name-label t1">Teamname 1</span>
+      <input class="team-name-input t1" type="text" maxlength="20" value="${esc(an1)}" oninput="state.abräumen.teamName1=this.value;renderSpiele()" placeholder="Team 1">
+    </div>
+    <div class="team-name-field">
+      <span class="team-name-label t2">Teamname 2</span>
+      <input class="team-name-input t2" type="text" maxlength="20" value="${esc(an2)}" oninput="state.abräumen.teamName2=this.value;renderSpiele()" placeholder="Team 2">
+    </div>
+  </div>`;
+
+  // Team assignment
   html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      <div class="tanne-team-label tanne-team1-label">${an1}</div>
       ${ab.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="abrAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      <div class="tanne-team-label tanne-team2-label">${an2}</div>
       ${ab.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
@@ -895,7 +937,7 @@ function renderAbraeumenCard() {
   if (unassigned.length > 0) {
     html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
       <div class="tanne-players-row">
-        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ T1</span></div>`).join('')}
+        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ ${an1}</span></div>`).join('')}
       </div>`;
   }
 
@@ -904,7 +946,7 @@ function renderAbraeumenCard() {
   [0, 1].forEach(i => {
     const t = ab.teams[i];
     const cls = i === 0 ? 't1' : 't2';
-    const label = i === 0 ? 'Team 1' : 'Team 2';
+    const label = i === 0 ? an1 : an2;
     html += `<div class="abr-team-box ${cls}${t.done?' done-box':''}">
       <div class="abr-team-name">${label}</div>
       <div style="text-align:center;">
@@ -934,9 +976,9 @@ function renderAbraeumenCard() {
     let winText = '';
     if (bothDone) {
       if (t1.throws === t2.throws) winText = 'Unentschieden!';
-      else winText = (t1.throws < t2.throws ? 'Team 1' : 'Team 2') + ' gewinnt mit weniger Würfen!';
+      else winText = (t1.throws < t2.throws ? an1 : an2) + ' gewinnt mit weniger Würfen!';
     } else {
-      winText = (t1.done ? 'Team 1' : 'Team 2') + ' hat zuerst 2x abgeräumt!';
+      winText = (t1.done ? an1 : an2) + ' hat zuerst 2x abgeräumt!';
     }
     html += `<div class="abr-winner-banner">${winText}</div>`;
   }
@@ -1000,10 +1042,11 @@ function renderBis100Card() {
   const b = state.bis100;
   const t1 = b.teams[0], t2 = b.teams[1];
   const anyWon = t1.won || t2.won;
+  const bn1 = b.teamName1||'Team 1', bn2 = b.teamName2||'Team 2';
 
   let metaLabel = 'Spieler noch nicht eingeteilt';
   if (b.team1.length || b.team2.length) {
-    metaLabel = `Team 1: ${b.team1.length} · Team 2: ${b.team2.length} Spieler`;
+    metaLabel = `${bn1}: ${b.team1.length} · ${bn2}: ${b.team2.length} Spieler`;
   }
 
   let html = `<div class="spiel-card">
@@ -1016,15 +1059,27 @@ function renderBis100Card() {
     </div>
     <div class="spiel-body${b.open?' open':''}">`;
 
+  // Team name inputs
+  html += `<div class="team-names-row">
+    <div class="team-name-field">
+      <span class="team-name-label t1">Teamname 1</span>
+      <input class="team-name-input t1" type="text" maxlength="20" value="${esc(bn1)}" oninput="state.bis100.teamName1=this.value;renderSpiele()" placeholder="Team 1">
+    </div>
+    <div class="team-name-field">
+      <span class="team-name-label t2">Teamname 2</span>
+      <input class="team-name-input t2" type="text" maxlength="20" value="${esc(bn2)}" oninput="state.bis100.teamName2=this.value;renderSpiele()" placeholder="Team 2">
+    </div>
+  </div>`;
+
   // Team assignment
   html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">MANNSCHAFTEN — tippen zum Wechseln</div>`;
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team1-label">Team 1</div>
+      <div class="tanne-team-label tanne-team1-label">${bn1}</div>
       ${b.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="b100Assign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
-      <div class="tanne-team-label tanne-team2-label">Team 2</div>
+      <div class="tanne-team-label tanne-team2-label">${bn2}</div>
       ${b.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
@@ -1033,7 +1088,7 @@ function renderBis100Card() {
   if (unassigned.length) {
     html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
       <div class="tanne-players-row">
-        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ T1</span></div>`).join('')}
+        ${unassigned.map(s => `<div class="tanne-player-chip chip-unassigned" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()} <span style="font-size:10px;color:#1a6bc0;">→ ${bn1}</span></div>`).join('')}
       </div>`;
   }
 
@@ -1042,7 +1097,7 @@ function renderBis100Card() {
   [0, 1].forEach(i => {
     const t = b.teams[i];
     const cls = i === 0 ? 't1' : 't2';
-    const label = i === 0 ? 'Team 1' : 'Team 2';
+    const label = i === 0 ? bn1 : bn2;
     const flashCls = t.flashMsg ? ' flash-reset' : '';
     const wonCls = t.won ? ' won' : '';
     const btnDisabled = t.won ? ' disabled' : '';
@@ -1076,9 +1131,9 @@ function renderBis100Card() {
     let winText = '';
     if (t1.won && t2.won) {
       if (t1.totalThrows === t2.totalThrows) winText = 'Unentschieden!';
-      else winText = (t1.totalThrows < t2.totalThrows ? 'Team 1' : 'Team 2') + ' gewinnt mit weniger Würfen!';
+      else winText = (t1.totalThrows < t2.totalThrows ? bn1 : bn2) + ' gewinnt mit weniger Würfen!';
     } else {
-      winText = (t1.won ? 'Team 1' : 'Team 2') + ' hat 100 erreicht!';
+      winText = (t1.won ? bn1 : bn2) + ' hat 100 erreicht!';
     }
     html += `<div class="b100-winner-banner">${winText}</div>`;
   }
