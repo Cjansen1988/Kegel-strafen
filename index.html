@@ -906,7 +906,8 @@ function renderAbraeumenCard() {
       </div>
       <span class="spiel-chevron${ab.open?' open':''}">&#8964;</span>
     </div>
-    <div class="spiel-body${ab.open?' open':''}">`;
+    <div class="spiel-body${ab.open?' open':''}">
+    <div class="spiel-desc">Stellt die Kegelbahn auf „Abräumen".<br><br>Teilt die zwei Mannschaften ein und vergebt einen Namen oder klickt auf „Zufällig aufteilen".<br><br>${an1} fängt an und wirft so oft, bis sie das Bild abgeräumt haben. Pro Wurf erhöht ihr die Zahl um einen Punkt. Nachdem ihr das erste Mal abgeräumt habt, klickt ihr auf <strong>„1x abgeräumt"</strong>. Nachdem ihr das zweite Mal abgeräumt habt, klickt ihr auf <strong>„2x abgeräumt"</strong>. Die Gesamtzahl eurer Würfe wird angezeigt.<br><br>Nun spielt ${an2} mit identischen Regeln. Das Team mit weniger Würfen gewinnt.</div>`;
 
   // Team name inputs
   html += `<div class="team-names-row">
@@ -1057,7 +1058,8 @@ function renderBis100Card() {
       </div>
       <span class="spiel-chevron${b.open?' open':''}">&#8964;</span>
     </div>
-    <div class="spiel-body${b.open?' open':''}">`;
+    <div class="spiel-body${b.open?' open':''}">
+    <div class="spiel-desc">Ihr teilt euch auf 2 Teams auf oder klickt auf „Zufällig aufteilen".<br><br>${bn1} startet und wirft. Wählt die Zahl, die ihr geworfen habt, und erhöht damit euren Punktestand.<br><br>Solltet ihr mit eurem Wurf eine <strong>Schnapszahl</strong> treffen, wird der Punktestand auf <strong>0 zurückgesetzt</strong>. Eine <strong>Pumpe zählt 0</strong>.<br><br>Das Team, welches zuerst <strong>100 Punkte</strong> erreicht, gewinnt das Spiel.</div>`;
 
   // Team name inputs
   html += `<div class="team-names-row">
@@ -1246,7 +1248,8 @@ function renderBlackjackCard() {
       </div>
       <span class="spiel-chevron${bj.open?' open':''}">&#8964;</span>
     </div>
-    <div class="spiel-body${bj.open?' open':''}">`;
+    <div class="spiel-body${bj.open?' open':''}">
+    <div class="spiel-desc">Ein Einzelspiel. Jeder Spieler zieht eine Spielkarte. Bube = 2, Dame = 3, König = 4. Ein <strong>Ass zählt 1 oder 11</strong> — ihr entscheidet beim Aufdecken.<br><br>Der erste Spieler kommt zum Tablet und tippt seine Karte an. Die Karte bleibt <strong>verdeckt</strong>. Dann kegelt ihr so viele Würfe wie ihr wollt und tragt die Zahlen ein. Wenn ihr genug habt, klickt auf <strong>„Stehen"</strong>.<br><br>Ihr könnt mit dem Aufdecken bis zum Schluss warten — das erhöht die Spannung! Wer nach dem Aufdecken <strong>über 21</strong> ist, hat automatisch verloren. Wer <strong>genau 21</strong> hat, hat automatisch gewonnen.<br><br>Über den Button unten legt ihr fest, wie viele der verbleibenden Spieler (ohne Überworfene) noch verlieren.</div>`;
 
   // Loser count setting
   html += `<div class="loser-count-row">
@@ -1544,7 +1547,8 @@ function renderTagNachtCard() {
       </div>
       <span class="spiel-chevron${tn.open?' open':''}">&#8964;</span>
     </div>
-    <div class="spiel-body${tn.open?' open':''}">`;
+    <div class="spiel-body${tn.open?' open':''}">
+    <div class="spiel-desc">Ein Einzelspiel. Man spielt <strong>3 Tage</strong> und <strong>3 Nächte</strong>.<br><br>Jeder Spieler macht einen Wurf pro Runde. <strong>Tage</strong> zählen einfach, <strong>Nächte</strong> zählen doppelt. Die dritte Nacht ist die <strong>„Nacht der Nächte"</strong> — sie zählt dreifach.<br><br>Die Spieler mit der <strong>geringsten Punktzahl</strong> verlieren. Legt vorher fest, wie viele Spieler verlieren.</div>`;
 
   // Loser count
   html += `<div class="loser-count-row">
