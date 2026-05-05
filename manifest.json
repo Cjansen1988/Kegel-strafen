@@ -1,7 +1,7 @@
 {
-  "name": "Kegel-Strafen",
-  "short_name": "Kegeln",
-  "description": "Strafen und Spiele für den Kegelabend",
+  "name": "Blackout Boys",
+  "short_name": "BB Kegeln",
+  "description": "Strafen und Spiele — Blackout Boys",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
