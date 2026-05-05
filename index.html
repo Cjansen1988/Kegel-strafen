@@ -323,8 +323,8 @@ const COLORS = ['#E8D5B7','#B7D5E8','#D5E8B7','#E8B7D5','#D5B7E8','#E8C8B7','#B7
 const BAHN_FEE = 3.00;
 
 let state = {
-  spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen','Gast'],
-  anwesend: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen','Gast'],
+  spieler: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
+  anwesend: ['Jansen','Lehmann','Wübben','Dimi','Hannes','Heinrich','Jan','Lukas','Matze','Runde','Eiken','Thorben','Laurenz','Sebastian','Kossen'],
   spiele: [
     { id: 'hohe-hausnummer', name: 'Hohe Hausnummer', mode: 'tief', loserCount: 3, scores: {}, showResult: false },
     { id: 'tiefe-hausnummer', name: 'Tiefe Hausnummer', mode: 'hoch', loserCount: 3, scores: {}, showResult: false },
@@ -413,8 +413,12 @@ function renderTable(group) {
   html += `<th class="th-total">Summe</th>`;
   html += '</tr></thead><tbody>';
 
-  // Player rows
-  for (const s of state.spieler) {
+  // Player rows — present players first, absent at bottom
+  const sortedSpieler = [...state.spieler].sort((a, b) => {
+    const aD = state.anwesend.includes(a), bD = state.anwesend.includes(b);
+    return aD === bD ? 0 : aD ? -1 : 1;
+  });
+  for (const s of sortedSpieler) {
     const da = state.anwesend.includes(s);
     const rowTotal = strafen.reduce((sum, st) => sum + getCount(s,group,st.name)*st.coins, 0);
     html += `<tr class="tr-player${da?'':' absent-row'}">`;
@@ -483,8 +487,8 @@ function renderSummary() {
   // Absent card
   html += `<div class="absent-card">
     <div class="absent-card-title">Zu zahlen — nicht anwesende Kegler</div>
-    <div class="absent-amount">${fmtEuro(avg)}</div>
-    <div class="absent-explain">Ø Strafen der ${count} anwesenden Kegler (ohne Bahngebühr)</div>
+    <div class="absent-amount">${fmtEuro(avg + BAHN_FEE)}</div>
+    <div class="absent-explain">Ø Strafen (${fmtEuro(avg)}) + ${fmtEuro(BAHN_FEE)} Bahn</div>
   </div>`;
 
   // Stats row
@@ -526,7 +530,10 @@ function renderSummary() {
                <span class="summary-amount">${fmtEuro(totalMitBahn)}</span>
                <span class="summary-amount-sub">${fmtEuro(p.total)} + ${fmtEuro(BAHN_FEE)} Bahn</span>
              </div>`
-          : `<span class="summary-amount zero">–</span>`
+          : `<div style="text-align:right;">
+               <span class="summary-amount" style="color:#b8860b;">${fmtEuro(avg + BAHN_FEE)}</span>
+               <span class="summary-amount-sub">${fmtEuro(avg)} Ø + ${fmtEuro(BAHN_FEE)} Bahn</span>
+             </div>`
         }
       </div>
     </div>`;
@@ -1331,7 +1338,7 @@ function exportPDF() {
         body: [
           ['Anwesende Kegler', String(pdfCount), 'Ø Strafen', fmtEuro(pdfAvg)],
           ['Gesamtstrafen', fmtEuro(pdfStrafenSum), 'Bahngebühr', fmtEuro(BAHN_FEE) + ' / Person'],
-          ['Zu zahlen — nicht anwesende Kegler', { content: fmtEuro(pdfAvg), styles: { fontStyle: 'bold', textColor: [184,134,11] } }, 'Gesamtkasse (inkl. Bahn)', { content: fmtEuro(pdfGrand), styles: { fontStyle: 'bold', textColor: [26,92,42] } }],
+          ['Zu zahlen — nicht anwesende Kegler', { content: fmtEuro(pdfAvg + BAHN_FEE), styles: { fontStyle: 'bold', textColor: [184,134,11] } }, 'Gesamtkasse (inkl. Bahn)', { content: fmtEuro(pdfGrand), styles: { fontStyle: 'bold', textColor: [26,92,42] } }],
         ],
         startY: statsY,
         margin: { left: 14, right: 14 },
@@ -1396,9 +1403,9 @@ function exportPDF() {
         doc.setFontSize(9);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(184, 134, 11);
-        doc.text(`Nicht anwesend — zu zahlen je ${fmtEuro(pdfAvg)}`, 14, absentY + 4);
+        doc.text(`Nicht anwesend — zu zahlen je ${fmtEuro(pdfAvg + BAHN_FEE)} (Ø Strafen + Bahn)`, 14, absentY + 4);
         doc.autoTable({
-          body: pdfAbsent.map(p => [p.name.trim(), fmtEuro(pdfAvg)]),
+          body: pdfAbsent.map(p => [p.name.trim(), fmtEuro(pdfAvg) + ' Ø + ' + fmtEuro(BAHN_FEE) + ' Bahn', fmtEuro(pdfAvg + BAHN_FEE)]),
           startY: absentY + 7,
           margin: { left: 14, right: 14 },
           styles: { fontSize: 9, cellPadding: 2.5, lineColor: [255,224,130], lineWidth: 0.2, textColor: [100,80,0] },
