@@ -445,6 +445,13 @@ function renderTable(group) {
 function toggleAnwesend(s) {
   if (state.anwesend.includes(s)) {
     state.anwesend = state.anwesend.filter(p => p !== s);
+    // Remove from all game teams when marked absent
+    state.tannenbaum.team1 = state.tannenbaum.team1.filter(p => p !== s);
+    state.tannenbaum.team2 = state.tannenbaum.team2.filter(p => p !== s);
+    state.abräumen.team1 = state.abräumen.team1.filter(p => p !== s);
+    state.abräumen.team2 = state.abräumen.team2.filter(p => p !== s);
+    state.bis100.team1 = state.bis100.team1.filter(p => p !== s);
+    state.bis100.team2 = state.bis100.team2.filter(p => p !== s);
   } else {
     state.anwesend.push(s);
   }
@@ -575,7 +582,8 @@ function renderSpiele() {
   let html = '';
   state.spiele.forEach((g, gi) => {
     const modeLabel = g.mode === 'tief' ? 'Niedrigste Zahl verliert' : 'Höchste Zahl verliert';
-    const allFilled = state.spieler.every(s => g.scores[s] !== undefined && g.scores[s] !== '');
+    const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
+    const allFilled = aktiveSpieler.length > 0 && aktiveSpieler.every(s => g.scores[s] !== undefined && g.scores[s] !== '');
     html += `<div class="spiel-card">
       <div class="spiel-header" onclick="toggleSpiel(${gi})">
         <div>
@@ -593,7 +601,7 @@ function renderSpiele() {
             <button class="stepper-btn" onclick="changeLoser(${gi},1)">+</button>
           </div>
         </div>
-        ${state.spieler.map(s => {
+        ${aktiveSpieler.map(s => {
           const val = g.scores[s] !== undefined ? g.scores[s] : '';
           return `<div class="score-row">
             <div class="score-name"><div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>${s.trim()}</div>
@@ -642,16 +650,16 @@ function renderTannenbaumCard() {
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team1-label">Team 1</div>
-      ${tb.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="tanneAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${tb.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="tanneAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team2-label">Team 2</div>
-      ${tb.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="tanneAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${tb.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="tanneAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
 
   // Unassigned players
-  const unassigned = state.spieler.filter(s => !tb.team1.includes(s) && !tb.team2.includes(s));
+  const unassigned = state.spieler.filter(s => state.anwesend.includes(s) && !tb.team1.includes(s) && !tb.team2.includes(s));
   if (unassigned.length > 0) {
     html += `<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px;">NICHT ZUGETEILT</div>`;
     html += `<div class="tanne-players-row">`;
@@ -770,15 +778,15 @@ function renderAbraeumenCard() {
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team1-label">Team 1</div>
-      ${ab.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="abrAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${ab.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="abrAssign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team2-label">Team 2</div>
-      ${ab.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${ab.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="abrAssign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
 
-  const unassigned = state.spieler.filter(s => !ab.team1.includes(s) && !ab.team2.includes(s));
+  const unassigned = state.spieler.filter(s => state.anwesend.includes(s) && !ab.team1.includes(s) && !ab.team2.includes(s));
   if (unassigned.length > 0) {
     html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
       <div class="tanne-players-row">
@@ -908,15 +916,15 @@ function renderBis100Card() {
   html += `<div class="tanne-teams">
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team1-label">Team 1</div>
-      ${b.team1.map(s => `<div class="tanne-player-chip chip-team1" onclick="b100Assign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${b.team1.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team1" onclick="b100Assign('${esc(s)}',2)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
     <div class="tanne-team-col">
       <div class="tanne-team-label tanne-team2-label">Team 2</div>
-      ${b.team2.map(s => `<div class="tanne-player-chip chip-team2" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
+      ${b.team2.filter(s=>state.anwesend.includes(s)).map(s => `<div class="tanne-player-chip chip-team2" onclick="b100Assign('${esc(s)}',1)"><div class="avatar" style="background:${avatarColor(s)};width:20px;height:20px;font-size:9px;">${initials(s)}</div>${s.trim()}</div>`).join('') || '<span style="font-size:12px;color:#bbb;">–</span>'}
     </div>
   </div>`;
 
-  const unassigned = state.spieler.filter(s => !b.team1.includes(s) && !b.team2.includes(s));
+  const unassigned = state.spieler.filter(s => state.anwesend.includes(s) && !b.team1.includes(s) && !b.team2.includes(s));
   if (unassigned.length) {
     html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0 6px;">NICHT ZUGETEILT</div>
       <div class="tanne-players-row">
@@ -1034,7 +1042,7 @@ function autoSplitBis100() {
 
 function renderResult(g) {
   const ranked = state.spieler
-    .filter(s => g.scores[s] !== undefined && g.scores[s] !== '')
+    .filter(s => state.anwesend.includes(s) && g.scores[s] !== undefined && g.scores[s] !== '')
     .map(s => ({ name: s, score: parseFloat(g.scores[s]) }))
     .sort((a, b) => g.mode === 'tief' ? a.score - b.score : b.score - a.score);
   const n = Math.min(g.loserCount, ranked.length);
