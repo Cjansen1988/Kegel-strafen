@@ -313,6 +313,49 @@
   .tn-total-col { width: 52px; flex-shrink: 0; text-align: right; padding-top: 8px; }
   .tn-total-val { font-size: 22px; font-weight: 800; color: #1a1a1a; line-height: 1; }
   .tn-total-label { font-size: 10px; color: #aaa; }
+
+  /* Berg und Talfahrt */
+  .bt-player-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f0ede8; }
+  .bt-player-row:last-of-type { border-bottom: none; }
+  .bt-player-info { display: flex; align-items: center; gap: 8px; width: 90px; flex-shrink: 0; padding-top: 4px; }
+  .bt-player-name { font-size: 12px; font-weight: 600; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bt-inputs { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .bt-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .bt-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; width: 22px; flex-shrink: 0; }
+  .bt-group-label.berg { color: #1a5c2a; }
+  .bt-group-label.tal  { color: #b52222; }
+  .bt-inp { width: 42px; height: 38px; border-radius: 7px; border: 1.5px solid #d0cdc5; text-align: center; font-size: 15px; font-weight: 700; background: #fff; color: #1a1a1a; -moz-appearance: textfield; }
+  .bt-inp::-webkit-outer-spin-button, .bt-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .bt-inp:focus { outline: none; border-color: #888; }
+  .bt-inp.berg { background: #e8f5e9; color: #1a5c2a; border-color: #a5d6a7; }
+  .bt-inp.tal  { background: #fdecea; color: #b52222; border-color: #f5a0a0; }
+  .bt-sub { font-size: 10px; color: #aaa; font-weight: 600; min-width: 28px; text-align: right; }
+  .bt-total-col { width: 52px; flex-shrink: 0; text-align: right; padding-top: 8px; }
+  .bt-total-val { font-size: 22px; font-weight: 800; color: #1a1a1a; line-height: 1; }
+  .bt-total-val.negative { color: #b52222; }
+  .bt-total-label { font-size: 10px; color: #aaa; }
+
+  /* Mensch ärgere dich nicht */
+  .madn-player-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #f0ede8; }
+  .madn-player-row:last-child { border-bottom: none; }
+  .madn-player-row.madn-active-row { background: #eef5ff; border-radius: 8px; padding: 9px 8px; margin: 2px -8px; border-bottom: none; }
+  .madn-order-badge { width: 22px; height: 22px; border-radius: 50%; background: #e8e5de; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #888; flex-shrink: 0; }
+  .madn-order-badge.active { background: #1a1a1a; color: #fff; }
+  .madn-order-badge.won { background: #1a5c2a; color: #fff; }
+  .madn-name-col { width: 76px; flex-shrink: 0; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .madn-progress-col { flex: 1; }
+  .madn-progress-bar-bg { height: 9px; background: #f0ede8; border-radius: 5px; overflow: hidden; }
+  .madn-progress-fill { height: 100%; border-radius: 5px; transition: width 0.35s; }
+  .madn-score-num { width: 34px; font-size: 16px; font-weight: 800; text-align: right; flex-shrink: 0; }
+  .madn-score-num.won { color: #1a5c2a; }
+  .madn-reset-tag { font-size: 10px; font-weight: 700; color: #fff; background: #b52222; padding: 1px 6px; border-radius: 5px; flex-shrink: 0; white-space: nowrap; }
+  .madn-reset-tag-spacer { width: 36px; flex-shrink: 0; }
+  .madn-active-section { background: #eef5ff; border-radius: 12px; padding: 12px 14px; margin: 10px 0 4px; border: 1.5px solid #b3d4f5; }
+  .madn-active-label { font-size: 12px; font-weight: 700; color: #1a6bc0; margin-bottom: 10px; }
+  .madn-numpad { display: flex; gap: 5px; }
+  .madn-num-btn { flex: 1; height: 50px; border-radius: 9px; border: 1.5px solid #d0cdc5; background: #fff; font-size: 18px; font-weight: 700; cursor: pointer; }
+  .madn-num-btn:active { background: #1a6bc0; color: #fff; border-color: #1a6bc0; }
+  .madn-winner-banner { text-align: center; font-size: 20px; font-weight: 800; color: #1a5c2a; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 12px; padding: 18px; margin-top: 14px; }
 </style>
 </head>
 <body>
@@ -405,6 +448,7 @@ let state = {
   tannenbaum: {
     open: false,
     teamName1: 'Team 1', teamName2: 'Team 2',
+    penaltiesApplied: false,
     team1: [],
     team2: [],
     tree1: new Array(25).fill(false),
@@ -413,6 +457,7 @@ let state = {
   abräumen: {
     open: false,
     teamName1: 'Team 1', teamName2: 'Team 2',
+    penaltiesApplied: false,
     team1: [],
     team2: [],
     teams: [
@@ -423,6 +468,7 @@ let state = {
   bis100: {
     open: false,
     teamName1: 'Team 1', teamName2: 'Team 2',
+    penaltiesApplied: false,
     team1: [],
     team2: [],
     teams: [
@@ -434,13 +480,31 @@ let state = {
     open: false,
     loserCount: 1,
     showResult: false,
+    penaltiesApplied: false,
     players: {},
   },
   tagnacht: {
     open: false,
     loserCount: 1,
     showResult: false,
+    penaltiesApplied: false,
     scores: {},   // { playerName: { tag1:'', tag2:'', tag3:'', nacht1:'', nacht2:'', nacht3:'' } }
+  },
+  bergtal: {
+    open: false,
+    loserCount: 1,
+    showResult: false,
+    penaltiesApplied: false,
+    scores: {},   // { playerName: { t1:'', t2:'',..., t10:'' } }
+  },
+  madn: {
+    open: false,
+    order: [],        // player names in drawn order
+    scores: {},       // { name: currentScore }
+    currentTurn: 0,   // index into order
+    winner: null,
+    penaltiesApplied: false,
+    lastReset: [],    // [{ name, reason }] reset on last throw
   },
   strafen: {
     allgemein: [
@@ -740,6 +804,8 @@ function renderSpiele() {
   html += renderBis100Card();
   html += renderBlackjackCard();
   html += renderTagNachtCard();
+  html += renderBergTalCard();
+  html += renderMadnCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -865,15 +931,28 @@ function tanneAssign(s, toTeam) {
 }
 
 function tanneCell(teamNum, idx) {
-  const cells = teamNum === 1 ? state.tannenbaum.tree1 : state.tannenbaum.tree2;
+  const tb = state.tannenbaum;
+  const cells = teamNum === 1 ? tb.tree1 : tb.tree2;
   cells[idx] = !cells[idx];
   if (navigator.vibrate) navigator.vibrate(15);
+  // Apply penalty to losing team when first team finishes
+  if (!tb.penaltiesApplied) {
+    const done1 = tb.tree1.every(Boolean), done2 = tb.tree2.every(Boolean);
+    if (done1 && !done2) {
+      tb.penaltiesApplied = true;
+      applyGamePenalty(tb.team2.filter(s => state.anwesend.includes(s)));
+    } else if (done2 && !done1) {
+      tb.penaltiesApplied = true;
+      applyGamePenalty(tb.team1.filter(s => state.anwesend.includes(s)));
+    }
+  }
   renderSpiele();
 }
 
 function resetTanne() {
   state.tannenbaum.tree1 = new Array(25).fill(false);
   state.tannenbaum.tree2 = new Array(25).fill(false);
+  state.tannenbaum.penaltiesApplied = false;
   renderSpiele();
 }
 
@@ -1011,13 +1090,21 @@ function abrThrow(i, d) {
   renderSpiele();
 }
 function abrMilestone(i, which) {
-  const t = state.abräumen.teams[i];
+  const ab = state.abräumen;
+  const t = ab.teams[i];
   if (which === 'first') {
     t.first = !t.first;
     if (!t.first) t.done = false;
   } else {
     if (!t.first) return;
     t.done = !t.done;
+  }
+  // Apply penalty once both teams have finished (bothDone)
+  if (!ab.penaltiesApplied && ab.teams[0].done && ab.teams[1].done) {
+    ab.penaltiesApplied = true;
+    const t0 = ab.teams[0], t1 = ab.teams[1];
+    const losingTeam = t0.throws <= t1.throws ? ab.team2 : ab.team1;
+    applyGamePenalty(losingTeam.filter(s => state.anwesend.includes(s)));
   }
   renderSpiele();
 }
@@ -1026,6 +1113,7 @@ function resetAbr() {
     { throws: 0, first: false, done: false },
     { throws: 0, first: false, done: false },
   ];
+  state.abräumen.penaltiesApplied = false;
   renderSpiele();
 }
 function autoSplitAbr() {
@@ -1179,6 +1267,12 @@ function b100Add(i, n) {
     t.won = true;
     t.flashMsg = '';
     if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+    // Apply penalty to losing team (the one that didn't win yet)
+    if (!state.bis100.penaltiesApplied) {
+      state.bis100.penaltiesApplied = true;
+      const losingTeam = i === 0 ? state.bis100.team2 : state.bis100.team1;
+      applyGamePenalty(losingTeam.filter(s => state.anwesend.includes(s)));
+    }
     renderSpiele();
   } else {
     t.score = newScore;
@@ -1192,6 +1286,7 @@ function resetBis100() {
     { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
     { score: 0, throwsSinceReset: 0, totalThrows: 0, won: false, flashMsg: '' },
   ];
+  state.bis100.penaltiesApplied = false;
   renderSpiele();
 }
 function autoSplitBis100() {
@@ -1504,11 +1599,23 @@ function bjAufdecken(s) {
 }
 function bjAuswerten() {
   state.blackjack.showResult = true;
+  if (!state.blackjack.penaltiesApplied) {
+    state.blackjack.penaltiesApplied = true;
+    const bj = state.blackjack;
+    const spieler = state.spieler.filter(s => state.anwesend.includes(s));
+    const busted = spieler.filter(s => bj.players[s]?.busted);
+    const others = spieler
+      .filter(s => !bj.players[s]?.busted && !bj.players[s]?.won)
+      .sort((a, b) => (bj.players[b]?.total || 0) - (bj.players[a]?.total || 0));
+    const loserStart = Math.max(0, others.length - bj.loserCount);
+    applyGamePenalty([...busted, ...others.slice(loserStart)]);
+  }
   renderSpiele();
 }
 function bjReset() {
   state.blackjack.players = {};
   state.blackjack.showResult = false;
+  state.blackjack.penaltiesApplied = false;
   renderSpiele();
 }
 
@@ -1656,12 +1763,370 @@ function tnSet(s, roundId, val) {
 }
 function tnAuswerten() {
   state.tagnacht.showResult = true;
+  if (!state.tagnacht.penaltiesApplied) {
+    state.tagnacht.penaltiesApplied = true;
+    const tn = state.tagnacht;
+    const spieler = state.spieler.filter(s => state.anwesend.includes(s));
+    const ranked = spieler.map(s => ({ name: s, total: tnTotal(s) })).sort((a, b) => b.total - a.total);
+    const loserStart = Math.max(0, ranked.length - tn.loserCount);
+    applyGamePenalty(ranked.slice(loserStart).map(p => p.name));
+  }
   renderSpiele();
 }
 function tnReset() {
   state.tagnacht.scores = {};
   state.tagnacht.showResult = false;
+  state.tagnacht.penaltiesApplied = false;
   renderSpiele();
+}
+
+// ── Berg und Talfahrt ──────────────────────────────────────────
+function btTotal(s) {
+  const sc = state.bergtal.scores[s] || {};
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const v = sc[`t${i}`];
+    if (v === '' || v === undefined || v === null) continue;
+    total += parseFloat(v) || 0;
+  }
+  for (let i = 6; i <= 10; i++) {
+    const v = sc[`t${i}`];
+    if (v === '' || v === undefined || v === null) continue;
+    const n = parseFloat(v);
+    total -= isNaN(n) ? 0 : (n === 0 ? 10 : n); // Pumpe in Tal = -10
+  }
+  return total;
+}
+
+function btBergSum(s) {
+  const sc = state.bergtal.scores[s] || {};
+  let sum = 0;
+  for (let i = 1; i <= 5; i++) {
+    const v = sc[`t${i}`];
+    if (v !== '' && v !== undefined && v !== null) sum += parseFloat(v) || 0;
+  }
+  return sum;
+}
+
+function btTalSum(s) {
+  const sc = state.bergtal.scores[s] || {};
+  let sum = 0;
+  for (let i = 6; i <= 10; i++) {
+    const v = sc[`t${i}`];
+    if (v === '' || v === undefined || v === null) continue;
+    const n = parseFloat(v);
+    sum += isNaN(n) ? 0 : (n === 0 ? 10 : n);
+  }
+  return sum;
+}
+
+function renderBergTalCard() {
+  const bt = state.bergtal;
+  const aktiveSpieler = state.spieler.filter(s => state.anwesend.includes(s));
+
+  const startedCount = aktiveSpieler.filter(s => {
+    const sc = bt.scores[s] || {};
+    return Object.values(sc).some(v => v !== '' && v !== undefined && v !== null);
+  }).length;
+  const metaLabel = startedCount > 0
+    ? `${startedCount}/${aktiveSpieler.length} Spieler eingetragen`
+    : `${aktiveSpieler.length} Spieler · 5 Berg + 5 Tal`;
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleBergTal()">
+      <div>
+        <div class="spiel-title">Berg und Talfahrt</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${bt.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${bt.open?' open':''}">
+    <div class="spiel-desc">Ein Einzelspiel mit <strong>10 Würfen</strong> pro Spieler.<br><br>⛰️ <strong>Würfe 1–5 (Berg):</strong> Punkte werden <strong>addiert</strong> — so hoch wie möglich werfen! Pumpe zählt 0.<br><br>🏔️ <strong>Würfe 6–10 (Tal):</strong> Punkte werden <strong>abgezogen</strong> — so niedrig wie möglich werfen! Pumpe zählt −10.<br><br>Ziel: am Ende möglichst viele Punkte auf dem Konto. Die Spieler mit der <strong>geringsten Punktzahl</strong> verlieren.</div>`;
+
+  // Loser count
+  html += `<div class="loser-count-row">
+    <span class="loser-count-label">Anzahl Verlierer</span>
+    <div class="stepper">
+      <button class="stepper-btn" onclick="btChangeLoser(-1)">−</button>
+      <span class="stepper-val">${bt.loserCount}</span>
+      <button class="stepper-btn" onclick="btChangeLoser(1)">+</button>
+    </div>
+  </div>`;
+
+  // Legend
+  html += `<div style="display:flex;gap:16px;font-size:11px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0ede8;">
+    <span style="color:#1a5c2a;font-weight:700;">⛰️ Berg (1–5) = addieren</span>
+    <span style="color:#b52222;font-weight:700;">🏔️ Tal (6–10) = abziehen</span>
+  </div>`;
+
+  // Player rows
+  aktiveSpieler.forEach(s => {
+    if (!bt.scores[s]) bt.scores[s] = {};
+    const sc = bt.scores[s];
+    const bergSum = btBergSum(s);
+    const talSum = btTalSum(s);
+    const total = btTotal(s);
+    const anyFilled = Object.values(sc).some(v => v !== '' && v !== undefined && v !== null);
+
+    html += `<div class="bt-player-row">
+      <div class="bt-player-info">
+        <div class="avatar" style="background:${avatarColor(s)}">${initials(s)}</div>
+        <span class="bt-player-name">${s.trim()}</span>
+      </div>
+      <div class="bt-inputs">
+        <div class="bt-group">
+          <span class="bt-group-label berg">⛰️</span>`;
+    for (let i = 1; i <= 5; i++) {
+      html += `<input class="bt-inp berg" type="number" inputmode="numeric" min="0" max="9" placeholder="${i}" value="${sc[`t${i}`]??''}" oninput="btSet('${esc(s)}','t${i}',this.value)">`;
+    }
+    const bergFilled = [1,2,3,4,5].some(i => sc[`t${i}`] !== '' && sc[`t${i}`] !== undefined);
+    html += `<span class="bt-sub" style="color:#1a5c2a;">${bergFilled ? '+'+bergSum : ''}</span></div>
+        <div class="bt-group">
+          <span class="bt-group-label tal">🏔️</span>`;
+    for (let i = 6; i <= 10; i++) {
+      html += `<input class="bt-inp tal" type="number" inputmode="numeric" min="0" max="9" placeholder="${i-5}" value="${sc[`t${i}`]??''}" oninput="btSet('${esc(s)}','t${i}',this.value)">`;
+    }
+    const talFilled = [6,7,8,9,10].some(i => sc[`t${i}`] !== '' && sc[`t${i}`] !== undefined);
+    html += `<span class="bt-sub" style="color:#b52222;">${talFilled ? '−'+talSum : ''}</span></div>
+      </div>
+      <div class="bt-total-col">
+        <div class="bt-total-val${anyFilled && total < 0 ? ' negative' : ''}">${anyFilled ? total : '–'}</div>
+        <div class="bt-total-label">Punkte</div>
+      </div>
+    </div>`;
+  });
+
+  // Result
+  if (bt.showResult) html += renderBTResult(aktiveSpieler);
+
+  // Actions
+  const anyData = aktiveSpieler.some(s => {
+    const sc = bt.scores[s] || {};
+    return Object.values(sc).some(v => v !== '' && v !== undefined && v !== null);
+  });
+  html += `<div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-danger" onclick="btReset()" style="flex:1;">Zurücksetzen</button>
+    ${anyData ? `<button class="btn btn-primary" onclick="btAuswerten()" style="flex:1;">Auswerten</button>` : ''}
+  </div>`;
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderBTResult(spieler) {
+  const bt = state.bergtal;
+  const ranked = spieler
+    .map(s => ({ name: s, total: btTotal(s) }))
+    .sort((a, b) => b.total - a.total); // highest first = best
+  const loserStart = Math.max(0, ranked.length - bt.loserCount);
+  let html = '<div class="result-list" style="margin-top:14px;">';
+  ranked.forEach((p, i) => {
+    const isLoser = i >= loserStart;
+    const isTop = i === 0;
+    html += `<div class="result-row${isLoser?' loser':isTop?' top':''}">
+      <span class="result-rank">${i+1}.</span>
+      <div class="avatar" style="background:${avatarColor(p.name)};width:24px;height:24px;font-size:9px;flex-shrink:0;">${initials(p.name)}</div>
+      <span class="result-name">${p.name.trim()}</span>
+      ${isLoser ? '<span class="loser-badge">Verlierer</span>' : isTop ? '<span class="winner-tag">1. Platz</span>' : ''}
+      <span class="result-score">${p.total}</span>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function toggleBergTal() {
+  state.bergtal.open = !state.bergtal.open;
+  renderSpiele();
+}
+function btChangeLoser(d) {
+  state.bergtal.loserCount = Math.max(1, state.bergtal.loserCount + d);
+  renderSpiele();
+}
+function btSet(s, key, val) {
+  if (!state.bergtal.scores[s]) state.bergtal.scores[s] = {};
+  state.bergtal.scores[s][key] = val;
+  state.bergtal.showResult = false;
+  renderSpiele();
+}
+function btAuswerten() {
+  state.bergtal.showResult = true;
+  if (!state.bergtal.penaltiesApplied) {
+    state.bergtal.penaltiesApplied = true;
+    const bt = state.bergtal;
+    const spieler = state.spieler.filter(s => state.anwesend.includes(s));
+    const ranked = spieler.map(s => ({ name: s, total: btTotal(s) })).sort((a, b) => b.total - a.total);
+    const loserStart = Math.max(0, ranked.length - bt.loserCount);
+    applyGamePenalty(ranked.slice(loserStart).map(p => p.name));
+  }
+  renderSpiele();
+}
+function btReset() {
+  state.bergtal.scores = {};
+  state.bergtal.showResult = false;
+  state.bergtal.penaltiesApplied = false;
+  renderSpiele();
+}
+
+// ── Mensch ärgere dich nicht ──────────────────────────────────
+function renderMadnCard() {
+  const g = state.madn;
+  const hasOrder = g.order.length > 0;
+
+  let metaLabel = 'Einzelspiel · Exakt 50 Punkte';
+  if (hasOrder && g.winner) {
+    metaLabel = `🏆 ${g.winner.trim()} hat gewonnen!`;
+  } else if (hasOrder) {
+    metaLabel = `Dran: ${g.order[g.currentTurn].trim()} · ${g.order.length} Spieler`;
+  }
+
+  let html = `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleMadn()">
+      <div>
+        <div class="spiel-title">Mensch ärgere dich nicht</div>
+        <div class="spiel-meta">${metaLabel}</div>
+      </div>
+      <span class="spiel-chevron${g.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${g.open?' open':''}">
+    <div class="spiel-desc">Reihum wirft jeder <strong>die Vollen</strong>, bis er <strong>exakt 50 Punkte</strong> erreicht.<br><br>⚠️ Erreicht ein Spieler dieselbe Punktzahl wie ein anderer, wird der andere auf <strong>0 zurückgesetzt</strong>. Wer <strong>über 50</strong> kommt, fängt ebenfalls wieder bei 0 an.<br><br>Nur wer <strong>exakt 50</strong> trifft, gewinnt. Mensch ärgere dich nicht!</div>`;
+
+  if (!hasOrder) {
+    html += `<button class="btn btn-primary" onclick="madnAuslosen()" style="width:100%;margin-top:4px;padding:12px;">🎲 Reihenfolge auslosen</button>`;
+  } else {
+    // Player list
+    html += `<div style="margin-bottom:10px;">`;
+    g.order.forEach((s, idx) => {
+      const score = g.scores[s] || 0;
+      const isActive = idx === g.currentTurn && !g.winner;
+      const isWinner = g.winner === s;
+      const wasReset = g.lastReset.some(r => r.name === s);
+      const pct = Math.min(100, (score / 50) * 100);
+      let fillColor = '#1a5c2a';
+      if (score >= 45) fillColor = '#b52222';
+      else if (score >= 30) fillColor = '#c8860a';
+
+      html += `<div class="madn-player-row${isActive?' madn-active-row':''}">
+        <div class="madn-order-badge${isActive?' active':isWinner?' won':''}">${idx+1}</div>
+        <div class="avatar" style="background:${avatarColor(s)};width:24px;height:24px;font-size:9px;flex-shrink:0;">${initials(s)}</div>
+        <div class="madn-name-col">${s.trim()}</div>
+        <div class="madn-progress-col">
+          <div class="madn-progress-bar-bg">
+            <div class="madn-progress-fill" style="width:${pct}%;background:${fillColor};"></div>
+          </div>
+        </div>
+        <div class="madn-score-num${isWinner?' won':''}">${score}</div>
+        ${wasReset ? `<span class="madn-reset-tag">↩ 0</span>` : `<span class="madn-reset-tag-spacer"></span>`}
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Active player numpad
+    if (!g.winner) {
+      const current = g.order[g.currentTurn];
+      const currentScore = g.scores[current] || 0;
+      html += `<div class="madn-active-section">
+        <div class="madn-active-label">🎳 Dran: ${current.trim()} — aktuell ${currentScore} Punkte</div>
+        <div class="madn-numpad">
+          ${[0,1,2,3,4,5,6,7,8,9].map(n =>
+            `<button class="madn-num-btn" onclick="madnThrow(${n})">${n}</button>`
+          ).join('')}
+        </div>
+      </div>`;
+    }
+
+    // Winner banner
+    if (g.winner) {
+      html += `<div class="madn-winner-banner">🏆 ${g.winner.trim()} hat exakt 50 erreicht und gewonnen!</div>`;
+    }
+
+    html += `<div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-danger" onclick="madnReset()" style="flex:1;">Neues Spiel</button>
+      <button class="btn" onclick="madnAuslosen()" style="flex:1;">Neu auslosen</button>
+    </div>`;
+  }
+
+  html += '</div></div>';
+  return html;
+}
+
+function madnThrow(value) {
+  const g = state.madn;
+  if (g.winner) return;
+  const s = g.order[g.currentTurn];
+  const oldScore = g.scores[s] || 0;
+  const newScore = oldScore + value;
+
+  g.lastReset = [];
+
+  if (newScore > 50) {
+    // Over 50 → reset to 0
+    g.scores[s] = 0;
+    g.lastReset.push({ name: s, reason: 'over' });
+  } else if (newScore === 50) {
+    g.scores[s] = 50;
+    g.winner = s;
+    if (!g.penaltiesApplied) {
+      g.penaltiesApplied = true;
+      applyGamePenalty(g.order.filter(p => p !== s));
+    }
+  } else {
+    g.scores[s] = newScore;
+    // Collision: reset any other player who now shares the same score (only if > 0)
+    if (newScore > 0) {
+      g.order.forEach(other => {
+        if (other !== s && (g.scores[other] || 0) === newScore) {
+          g.scores[other] = 0;
+          g.lastReset.push({ name: other, reason: 'collision' });
+        }
+      });
+    }
+  }
+
+  if (!g.winner) {
+    g.currentTurn = (g.currentTurn + 1) % g.order.length;
+  }
+  if (navigator.vibrate) navigator.vibrate(15);
+  renderSpiele();
+}
+
+function toggleMadn() {
+  state.madn.open = !state.madn.open;
+  renderSpiele();
+}
+
+function madnAuslosen() {
+  const spieler = state.spieler.filter(s => state.anwesend.includes(s));
+  const shuffled = [...spieler].sort(() => Math.random() - 0.5);
+  state.madn.order = shuffled;
+  state.madn.scores = {};
+  shuffled.forEach(s => { state.madn.scores[s] = 0; });
+  state.madn.currentTurn = 0;
+  state.madn.winner = null;
+  state.madn.lastReset = [];
+  state.madn.open = true;
+  renderSpiele();
+}
+
+function madnReset() {
+  state.madn.order = [];
+  state.madn.scores = {};
+  state.madn.currentTurn = 0;
+  state.madn.winner = null;
+  state.madn.penaltiesApplied = false;
+  state.madn.lastReset = [];
+  renderSpiele();
+}
+
+// ── Penalty helpers ───────────────────────────────────────────
+function applyGamePenalty(losers) {
+  const stName = 'verl. Spiel';
+  losers.forEach(s => {
+    const k = key(s, 'kegel', stName);
+    state.counts[k] = (state.counts[k] || 0) + 1;
+  });
+  if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+  renderAll();
 }
 
 function getSpielScore(g, s) {
@@ -1716,12 +2181,23 @@ function setScore(gi, s, val) {
   state.spiele[gi].showResult = false;
 }
 function auswerten(gi) {
-  state.spiele[gi].showResult = true;
+  const g = state.spiele[gi];
+  g.showResult = true;
+  if (!g.penaltiesApplied) {
+    g.penaltiesApplied = true;
+    const ranked = state.spieler
+      .filter(s => state.anwesend.includes(s) && getSpielScore(g, s) !== null)
+      .map(s => ({ name: s, score: getSpielScore(g, s) }))
+      .sort((a, b) => g.mode === 'tief' ? a.score - b.score : b.score - a.score);
+    const n = Math.min(g.loserCount, ranked.length);
+    applyGamePenalty(ranked.slice(ranked.length - n).map(p => p.name));
+  }
   renderSpiele();
 }
 function resetSpiel(gi) {
   state.spiele[gi].scores = {};
   state.spiele[gi].showResult = false;
+  state.spiele[gi].penaltiesApplied = false;
   renderSpiele();
 }
 function esc2(s) { return s.replace(/[^a-zA-Z0-9]/g,'_'); }
