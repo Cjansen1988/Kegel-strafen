@@ -651,7 +651,7 @@ let state = {
   },
   vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
   busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
-  wdmsd: { open:false, mode:'rounds', totalRounds:3, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
+  wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -2824,6 +2824,7 @@ function resetAllGames() {
 function toggleWdmsd() { state.wdmsd.open=!state.wdmsd.open; renderSpiele(); }
 function wdmsdSetMode(m) { state.wdmsd.mode=m; renderSpiele(); }
 function wdmsdSetRounds(n) { state.wdmsd.totalRounds=Math.max(1,Math.min(20,n)); renderSpiele(); }
+function wdmsdSetLosers(n) { const w=state.wdmsd; w.loserCount=Math.max(1,Math.min(w.playerOrder.length>1?w.playerOrder.length-1:10,n)); renderSpiele(); }
 function wdmsdRandomOrder() {
   const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
   state.wdmsd.playerOrder=[...aktiv].sort(()=>Math.random()-0.5);
@@ -2884,7 +2885,8 @@ function wdmsdNextRound() {
     w.phase='done';
     if(!w.penaltiesApplied) {
       w.penaltiesApplied=true;
-      const losers=w.playerOrder.filter(p=>!(w.winners||[]).includes(p)&&state.anwesend.includes(p));
+      const sorted=[...w.playerOrder].sort((a,b)=>(w.strikes[b]||0)-(w.strikes[a]||0));
+      const losers=sorted.slice(0,w.loserCount).filter(p=>state.anwesend.includes(p));
       if(losers.length>0) applyGamePenalty(losers);
     }
   } else {
@@ -2918,6 +2920,12 @@ function renderWdmsdCard() {
         +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetRounds('+(w.totalRounds+1)+')">+</button>'
         +'</div>';
     }
+    body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+      +'<span style="font-size:13px;font-weight:500;flex:1;">Verlierer</span>'
+      +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetLosers('+(w.loserCount-1)+')">−</button>'
+      +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+w.loserCount+'</span>'
+      +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetLosers('+(w.loserCount+1)+')">+</button>'
+      +'</div>';
     body += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="wdmsdRandomOrder()">🎲 Reihenfolge auslosen</button>';
     if(w.playerOrder.length>0) {
       body += '<div style="margin-bottom:12px;">';
