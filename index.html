@@ -651,6 +651,7 @@ let state = {
   },
   vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
   busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
+  wdmsd: { open:false, mode:'rounds', totalRounds:3, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -981,6 +982,7 @@ function renderSpiele() {
   html += renderMadnCard();
   html += renderVierGewinntCard();
   html += renderBusfahrenCard();
+  html += renderWdmsdCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -2814,7 +2816,200 @@ function resetAllGames() {
   vg.board = Array.from({length:9}, () => new Array(9).fill(null));
   vg.currentTeam = 0; vg.winner = null; vg.winCells = []; vg.lastDrop = null; vg.team1 = []; vg.team2 = [];
   const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[];
+  const wd = state.wdmsd; Object.assign(wd,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
   state.counts = {};
+}
+
+// ── Wie du mir, so ich dir ─────────────────────────────
+function toggleWdmsd() { state.wdmsd.open=!state.wdmsd.open; renderSpiele(); }
+function wdmsdSetMode(m) { state.wdmsd.mode=m; renderSpiele(); }
+function wdmsdSetRounds(n) { state.wdmsd.totalRounds=Math.max(1,Math.min(20,n)); renderSpiele(); }
+function wdmsdRandomOrder() {
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  state.wdmsd.playerOrder=[...aktiv].sort(()=>Math.random()-0.5);
+  renderSpiele();
+}
+function wdmsdStart() {
+  const w=state.wdmsd;
+  if(w.playerOrder.length<2) return;
+  w.phase='playing'; w.currentRound=1; w.currentIdx=0;
+  w.roundThrows={}; w.strikes={}; w.eliminated=[];
+  w.winner=null; w.winners=[]; w.lastRoundLog=[]; w.lastRoundStrikes={};
+  w.gameOver=false; w.penaltiesApplied=false;
+  w.playerOrder.forEach(p=>{w.strikes[p]=0;});
+  renderSpiele();
+}
+function wdmsdThrow(value) {
+  const w=state.wdmsd;
+  const active=w.playerOrder.filter(p=>!w.eliminated.includes(p));
+  const player=active[w.currentIdx];
+  if(!player) return;
+  w.roundThrows[player]=value;
+  w.currentIdx++;
+  if(w.currentIdx>=active.length) wdmsdProcessRound();
+  renderSpiele();
+}
+function wdmsdProcessRound() {
+  const w=state.wdmsd;
+  const active=w.playerOrder.filter(p=>!w.eliminated.includes(p));
+  const n=active.length;
+  const ns={}; active.forEach(p=>ns[p]=0);
+  const log=[];
+  active.forEach(p=>{ if(w.roundThrows[p]==='invalid') ns[p]++; });
+  const numPairs=n>=3?n:n-1;
+  for(let i=0;i<numPairs;i++) {
+    const a=active[i], b=active[(i+1)%n];
+    const av=w.roundThrows[a], bv=w.roundThrows[b];
+    if(av==='invalid'||bv==='invalid') { log.push({a,b,av,bv,r:'invalid'}); continue; }
+    if(av>bv)      { ns[b]++; log.push({a,b,av,bv,r:'a'}); }
+    else if(av<bv) { ns[a]++; log.push({a,b,av,bv,r:'b'}); }
+    else           { log.push({a,b,av,bv,r:'draw'}); }
+  }
+  active.forEach(p=>{ w.strikes[p]=(w.strikes[p]||0)+ns[p]; });
+  w.lastRoundLog=log; w.lastRoundStrikes=ns; w.gameOver=false;
+  if(w.mode==='elimination') {
+    active.forEach(p=>{ if(w.strikes[p]>=20&&!w.eliminated.includes(p)) w.eliminated.push(p); });
+    const remaining=w.playerOrder.filter(p=>!w.eliminated.includes(p));
+    if(remaining.length<=1) { w.gameOver=true; w.winners=[...remaining]; w.winner=remaining[0]||null; }
+  } else if(w.mode==='rounds'&&w.currentRound>=w.totalRounds) {
+    const minS=Math.min(...w.playerOrder.map(p=>w.strikes[p]||0));
+    w.winners=w.playerOrder.filter(p=>(w.strikes[p]||0)===minS);
+    w.winner=w.winners.length===1?w.winners[0]:null; w.gameOver=true;
+  }
+  w.phase='roundResult';
+}
+function wdmsdNextRound() {
+  const w=state.wdmsd;
+  if(w.gameOver) {
+    w.phase='done';
+    if(!w.penaltiesApplied) {
+      w.penaltiesApplied=true;
+      const losers=w.playerOrder.filter(p=>!(w.winners||[]).includes(p)&&state.anwesend.includes(p));
+      if(losers.length>0) applyGamePenalty(losers);
+    }
+  } else {
+    w.currentRound++; w.currentIdx=0; w.roundThrows={}; w.phase='playing';
+  }
+  renderSpiele();
+}
+function wdmsdReset() {
+  const w=state.wdmsd;
+  Object.assign(w,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,
+    roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],
+    lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
+  renderSpiele();
+}
+function renderWdmsdCard() {
+  const w=state.wdmsd;
+  let body='';
+  if(w.phase==='setup') {
+    const isR=w.mode==='rounds', isE=w.mode==='elimination';
+    body += '<div style="margin-bottom:12px;">'
+      +'<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px;">Spielmodus</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button class="btn'+(isR?' btn-primary':'')+'" style="flex:1;font-size:12px;padding:7px 4px;" onclick="wdmsdSetMode(\'rounds\')">Wenigste Striche</button>'
+      +'<button class="btn'+(isE?' btn-primary':'')+'" style="flex:1;font-size:12px;padding:7px 4px;" onclick="wdmsdSetMode(\'elimination\')">Ausscheiden bei 20</button>'
+      +'</div></div>';
+    if(isR) {
+      body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+        +'<span style="font-size:13px;font-weight:500;flex:1;">Durchgänge</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetRounds('+(w.totalRounds-1)+')">−</button>'
+        +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+w.totalRounds+'</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetRounds('+(w.totalRounds+1)+')">+</button>'
+        +'</div>';
+    }
+    body += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="wdmsdRandomOrder()">🎲 Reihenfolge auslosen</button>';
+    if(w.playerOrder.length>0) {
+      body += '<div style="margin-bottom:12px;">';
+      w.playerOrder.forEach((p,i)=>{
+        body += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f5f4f0;border-radius:6px;margin-bottom:3px;">'
+          +'<span style="font-size:12px;font-weight:700;color:#bbb;min-width:18px;">'+(i+1)+'.</span>'
+          +'<div class="avatar" style="background:'+avatarColor(p)+';width:22px;height:22px;font-size:10px;flex-shrink:0;">'+initials(p)+'</div>'
+          +'<span style="font-size:13px;">'+esc(p)+'</span>'
+          +'</div>';
+      });
+      body += '</div>';
+    }
+    body += '<button class="btn btn-primary" style="width:100%;"'+(w.playerOrder.length>=2?'':' disabled')+' onclick="wdmsdStart()">Spiel starten →</button>';
+  } else if(w.phase==='playing') {
+    const active=w.playerOrder.filter(p=>!w.eliminated.includes(p));
+    const cur=active[w.currentIdx];
+    const rLabel=w.mode==='rounds'?'Runde '+w.currentRound+' von '+w.totalRounds:'Runde '+w.currentRound+' · Ausscheiden bei 20';
+    body += '<div style="text-align:center;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">'+rLabel+'</div>';
+    body += '<div class="vg-turn-badge t1" style="margin-bottom:10px;">🎳 '+esc(cur)+' ist dran</div>';
+    body += '<div style="margin-bottom:10px;">';
+    active.forEach((p,i)=>{
+      const done=i<w.currentIdx, isCur=i===w.currentIdx;
+      const val=w.roundThrows[p];
+      const vs=val==='invalid'?'⚠️':val!==undefined?String(val):'–';
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:'+(isCur?'#dceeff':done?'#f5f4f0':'#fafaf7')+';border-radius:6px;margin-bottom:3px;font-size:13px;">'
+        +'<span style="font-weight:'+(isCur?700:400)+';">'+esc(p)+'</span>'
+        +'<span style="font-weight:700;color:'+(val==='invalid'?'#c0392b':'#1a1a1a')+';">'+vs+'</span>'
+        +'</div>';
+    });
+    body += '</div>';
+    body += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:6px;">';
+    for(let i=0;i<=9;i++) body += '<button class="btn" style="padding:10px 0;font-size:18px;font-weight:700;" onclick="wdmsdThrow('+i+')">'+i+'</button>';
+    body += '</div>';
+    body += '<button class="btn btn-danger" style="width:100%;margin-bottom:14px;" onclick="wdmsdThrow(\'invalid\')">⚠️ Ungültig</button>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;">Aktuelle Striche</div>';
+    [...w.playerOrder].sort((a,b)=>(w.strikes[a]||0)-(w.strikes[b]||0)).forEach(p=>{
+      const s=w.strikes[p]||0, elim=w.eliminated.includes(p);
+      body += '<div style="display:flex;justify-content:space-between;padding:3px 10px;font-size:13px;opacity:'+(elim?.4:1)+';">'
+        +'<span>'+esc(p)+(elim?' 🚫':'')+'</span>'
+        +'<span style="font-weight:700;">'+s+'</span>'
+        +'</div>';
+    });
+    body += '<div class="spiel-actions" style="margin-top:12px;"><button class="btn btn-danger" onclick="wdmsdReset()">Zurücksetzen</button></div>';
+  } else if(w.phase==='roundResult') {
+    body += '<div style="text-align:center;font-weight:700;font-size:15px;margin-bottom:12px;">Runde '+w.currentRound+' abgeschlossen</div>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Vergleiche</div>';
+    w.lastRoundLog.forEach(e=>{
+      const as=e.av==='invalid'?'⚠️':String(e.av), bs=e.bv==='invalid'?'⚠️':String(e.bv);
+      let res='';
+      if(e.r==='a') res='<span style="color:#c0392b;font-weight:600;">&rarr; '+esc(e.b)+' +1 ✗</span>';
+      else if(e.r==='b') res='<span style="color:#c0392b;font-weight:600;">&rarr; '+esc(e.a)+' +1 ✗</span>';
+      else if(e.r==='draw') res='<span style="color:#888;">Gleichstand</span>';
+      else res='<span style="color:#c0392b;">Ungültig — Vergleich entfällt</span>';
+      body += '<div style="padding:5px 10px;background:#f5f4f0;border-radius:6px;margin-bottom:4px;font-size:12px;">'
+        +'<strong>'+esc(e.a)+'</strong> ('+as+') vs. <strong>'+esc(e.b)+'</strong> ('+bs+') '+res+'</div>';
+    });
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 5px;">Striche dieser Runde</div>';
+    w.playerOrder.filter(p=>w.lastRoundStrikes[p]!==undefined).sort((a,b)=>(w.strikes[a]||0)-(w.strikes[b]||0)).forEach(p=>{
+      const earned=w.lastRoundStrikes[p]||0, total=w.strikes[p]||0, elim=w.eliminated.includes(p);
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 10px;font-size:13px;opacity:'+(elim?.5:1)+';">'
+        +'<span>'+esc(p)+(elim?' 🚫 ausgeschieden':'')+'</span>'
+        +'<span><span style="color:'+(earned>0?'#c0392b':'#27ae60')+';font-weight:700;">'+(earned>0?'+'+earned:'±0')+'</span> → <strong>'+total+'</strong></span>'
+        +'</div>';
+    });
+    body += '<div style="display:flex;gap:8px;margin-top:12px;">'
+      +'<button class="btn btn-danger" style="flex:1;" onclick="wdmsdReset()">Zurücksetzen</button>'
+      +'<button class="btn btn-primary" style="flex:2;" onclick="wdmsdNextRound()">'+(w.gameOver?'Ergebnis anzeigen →':'Nächste Runde →')+'</button>'
+      +'</div>';
+  } else if(w.phase==='done') {
+    const wnames=(w.winners||[]).map(p=>esc(p)).join(' & ');
+    body += '<div class="vg-winner-banner">'+(wnames?'🏆 '+wnames+' gewinnt!':'🤝 Kein Sieger')+'</div>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Endstand</div>';
+    [...w.playerOrder].sort((a,b)=>(w.strikes[a]||0)-(w.strikes[b]||0)).forEach((p,i)=>{
+      const s=w.strikes[p]||0, isW=(w.winners||[]).includes(p), elim=w.eliminated.includes(p);
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;opacity:'+(elim?.5:1)+';">'
+        +'<span><span style="font-weight:700;color:#ccc;margin-right:6px;">'+(i+1)+'.</span>'+esc(p)+'</span>'
+        +'<span style="font-weight:700;">'+s+' Strich'+(s===1?'':'e')+'</span>'
+        +'</div>';
+    });
+    body += '<div style="margin-top:12px;"><button class="btn btn-danger" style="width:100%;" onclick="wdmsdReset()">Neues Spiel</button></div>';
+  }
+  return '<div class="spiel-card">'
+    +'<div class="spiel-header" onclick="toggleWdmsd()">'
+    +'<div><div class="spiel-title">⚔️ Wie du mir, so ich dir</div>'
+    +'<div class="spiel-meta">Jeder gegen seine Nachbarn · In die Vollen</div></div>'
+    +'<span class="spiel-chevron'+(w.open?' open':'')+'" >&#8964;</span>'
+    +'</div>'
+    +'<div class="spiel-body'+(w.open?' open':'')+'">'
+    +'<div class="spiel-desc">Jeder Spieler konkurriert mit seinem Vorder- und Hintermann. Bessere Würfe geben dem Konkurrenten einen Strich — schlechtere Würfe geben dir selbst einen Strich. Bei Gleichstand kein Strich. Ungültige Würfe werden immer mit einem Strich bestraft.</div>'
+    +body
+    +'</div>'
+    +'</div>';
 }
 
 // ── Neues Team ──────────────────────────────────────────
