@@ -654,6 +654,7 @@ let state = {
   wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, maxStrikes:20, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   miteinander: { open:false, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, scores:{}, lastRoundScores:{}, lastRoundGroups:{}, winner:null, winners:[], loserCount:1, gameOver:false, penaltiesApplied:false, phase:'setup' },
   setzkasten: { open:false, phase:'setup', playerOrder:[], currentRound:1, currentIdx:0, grid:{}, pendingValue:null, colLosers:{}, penaltiesApplied:false, gameOver:false },
+  sdr: { open:false, phase:'setup', teams:[], loserCount:1, currentDay:0, scores:{}, dailyWinners:[], dayEntry:{}, totals:{}, loserTeamIdxs:[], penaltiesApplied:false, gameOver:false },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -987,6 +988,7 @@ function renderSpiele() {
   html += renderWdmsdCard();
   html += renderMiteinanderCard();
   html += renderSetzkastenCard();
+  html += renderSdrCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -2676,6 +2678,8 @@ function vgReset() {
 const BF_COLORS = ['#888','#e74c3c','#e67e22','#c9a227','#27ae60','#16a085','#2980b9','#8e44ad','#e91e8c','#2c3e50'];
 const SK_COLS = [0.20, 0.40, 0.60, 0.80, 1.00];
 const SK_LABELS = ['0,20€','0,40€','0,60€','0,80€','1,00€'];
+const SDR_DAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const SDR_MULT = [1,2,3,4,5,6];
 
 function renderBusfahrenCard() {
   const bf = state.busfahren;
@@ -2845,6 +2849,7 @@ function resetAllGames() {
   const wd = state.wdmsd; Object.assign(wd,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
   const mi = state.miteinander; Object.assign(mi,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},scores:{},lastRoundScores:{},lastRoundGroups:{},winner:null,winners:[],gameOver:false,penaltiesApplied:false});
   const sk = state.setzkasten; Object.assign(sk,{phase:'setup',playerOrder:[],currentRound:1,currentIdx:0,grid:{},pendingValue:null,colLosers:{},penaltiesApplied:false,gameOver:false});
+  const sdr = state.sdr; Object.assign(sdr,{phase:'setup',teams:[],currentDay:0,scores:{},dailyWinners:[],dayEntry:{},totals:{},loserTeamIdxs:[],penaltiesApplied:false,gameOver:false});
   state.counts = {};
 }
 
@@ -3411,6 +3416,220 @@ function renderSetzkastenCard() {
     +'</div>'
     +'<div class="spiel-body'+(sk.open?' open':'')+'">'
     +'<div class="spiel-desc">Jeder wirft reihum und ordnet das Ergebnis einer Spalte (0,20€–1,00€) zu. Eine 9 muss immer in die 1,00€-Spalte. Nach 5 Runden: Wer in einer Spalte den niedrigsten Wert hat, zahlt den entsprechenden Betrag. Bei Gleichstand zahlen alle Betroffenen.</div>'
+    +body
+    +'</div>'
+    +'</div>';
+}
+
+// ── 6-Tage-Rennen ───────────────────────────────────────
+function toggleSdr() { state.sdr.open=!state.sdr.open; renderSpiele(); }
+function sdrSetLosers(n) {
+  const sd=state.sdr;
+  sd.loserCount=Math.max(1,Math.min(sd.teams.length>1?sd.teams.length-1:10,n));
+  renderSpiele();
+}
+function sdrRandomTeams() {
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  const sh=[...aktiv].sort(()=>Math.random()-0.5);
+  const teams=[];
+  for(let i=0;i+1<sh.length;i+=2) teams.push({members:[sh[i],sh[i+1]]});
+  if(sh.length%2===1&&teams.length>0) teams[teams.length-1].members.push(sh[sh.length-1]);
+  state.sdr.teams=teams;
+  state.sdr.loserCount=Math.max(1,Math.min(Math.max(1,teams.length-1),state.sdr.loserCount));
+  renderSpiele();
+}
+function sdrStart() {
+  const sd=state.sdr;
+  if(sd.teams.length<2) return;
+  sd.phase='dayEntry'; sd.currentDay=0;
+  sd.scores={}; sd.dailyWinners=[]; sd.dayEntry={};
+  sd.teams.forEach((_,i)=>{ sd.scores[i]=[]; sd.dayEntry[i]=0; });
+  sd.penaltiesApplied=false; sd.gameOver=false;
+  renderSpiele();
+}
+function sdrSetDayScore(ti,delta) {
+  const sd=state.sdr;
+  sd.dayEntry[ti]=Math.max(0,Math.min(36,(sd.dayEntry[ti]||0)+delta));
+  renderSpiele();
+}
+function sdrConfirmDay() {
+  const sd=state.sdr;
+  sd.teams.forEach((_,i)=>{ sd.scores[i].push(sd.dayEntry[i]||0); });
+  const maxS=Math.max(...sd.teams.map((_,i)=>sd.dayEntry[i]||0));
+  sd.dailyWinners.push(sd.teams.map((_,i)=>i).filter(i=>(sd.dayEntry[i]||0)===maxS));
+  sd.phase='dayResult';
+  renderSpiele();
+}
+function sdrNextDay() {
+  const sd=state.sdr;
+  if(sd.currentDay>=5) { sdrEvaluate(); }
+  else {
+    sd.currentDay++;
+    sd.dayEntry={};
+    sd.teams.forEach((_,i)=>{ sd.dayEntry[i]=0; });
+    sd.phase='dayEntry';
+  }
+  renderSpiele();
+}
+function sdrGetTotals(sd,upToDay) {
+  const t={};
+  sd.teams.forEach((_,i)=>{ t[i]=0; });
+  for(let d=0;d<=upToDay;d++) {
+    const m=SDR_MULT[d];
+    sd.teams.forEach((_,i)=>{
+      t[i]+=(sd.scores[i]?.[d]||0)*m;
+      if((sd.dailyWinners[d]||[]).includes(i)) t[i]+=2*m;
+    });
+  }
+  return t;
+}
+function sdrEvaluate() {
+  const sd=state.sdr;
+  sd.phase='done'; sd.gameOver=true;
+  const totals=sdrGetTotals(sd,5);
+  sd.totals=totals;
+  const sorted=[...sd.teams.map((_,i)=>i)].sort((a,b)=>totals[a]-totals[b]);
+  sd.loserTeamIdxs=sorted.slice(0,sd.loserCount);
+  if(!sd.penaltiesApplied) {
+    sd.penaltiesApplied=true;
+    const losers=sd.loserTeamIdxs.flatMap(ti=>sd.teams[ti].members).filter(p=>state.anwesend.includes(p));
+    if(losers.length>0) applyGamePenalty(losers);
+  }
+}
+function sdrReset() {
+  Object.assign(state.sdr,{phase:'setup',teams:[],currentDay:0,scores:{},dailyWinners:[],dayEntry:{},totals:{},loserTeamIdxs:[],penaltiesApplied:false,gameOver:false});
+  renderSpiele();
+}
+function renderSdrCard() {
+  const sd=state.sdr;
+  let body='';
+  if(sd.phase==='setup') {
+    body += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="sdrRandomTeams()">🎲 Teams auslosen</button>';
+    if(sd.teams.length>0) {
+      body += '<div style="margin-bottom:12px;">';
+      sd.teams.forEach((t,i)=>{
+        body += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f5f4f0;border-radius:8px;margin-bottom:5px;">'
+          +'<span style="font-size:11px;font-weight:700;color:#888;min-width:52px;">Team '+(i+1)+'</span>'
+          +'<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+        t.members.forEach(p=>{
+          body += '<span style="display:flex;align-items:center;gap:4px;font-size:12px;">'
+            +'<div class="avatar" style="background:'+avatarColor(p)+';width:20px;height:20px;font-size:9px;flex-shrink:0;">'+initials(p)+'</div>'
+            +esc(p.trim())+'</span>';
+        });
+        body += '</div></div>';
+      });
+      body += '</div>';
+      body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+        +'<span style="font-size:13px;font-weight:500;flex:1;">Verlierer-Teams</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="sdrSetLosers('+(sd.loserCount-1)+')">−</button>'
+        +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+sd.loserCount+'</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="sdrSetLosers('+(sd.loserCount+1)+')">+</button>'
+        +'</div>';
+    }
+    body += '<button class="btn btn-primary" style="width:100%;"'+(sd.teams.length>=2?'':' disabled')+' onclick="sdrStart()">Rennen starten →</button>';
+  } else if(sd.phase==='dayEntry') {
+    const mult=SDR_MULT[sd.currentDay];
+    body += '<div style="text-align:center;background:#f5f4f0;border-radius:10px;padding:10px 14px;margin-bottom:12px;">'
+      +'<div style="font-size:20px;font-weight:900;">'+SDR_DAYS[sd.currentDay]+'</div>'
+      +'<div style="font-size:12px;color:#888;">Tag '+(sd.currentDay+1)+' von 6 &nbsp;·&nbsp; Multiplikator <strong>×'+mult+'</strong></div>'
+      +'</div>';
+    sd.teams.forEach((t,i)=>{
+      const score=sd.dayEntry[i]||0;
+      body += '<div style="padding:10px 12px;background:#fff;border:1.5px solid #e0ddd6;border-radius:10px;margin-bottom:8px;">'
+        +'<div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;">Team '+(i+1)+' · '+t.members.map(p=>esc(p.trim())).join(' & ')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<button class="btn" style="padding:8px 18px;font-size:18px;font-weight:700;" onclick="sdrSetDayScore('+i+',-1)">−</button>'
+        +'<span style="font-size:28px;font-weight:900;flex:1;text-align:center;color:#1a1a1a;">'+score+'</span>'
+        +'<button class="btn" style="padding:8px 18px;font-size:18px;font-weight:700;" onclick="sdrSetDayScore('+i+',1)">+</button>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#aaa;text-align:center;margin-top:4px;">'+score+' × '+mult+' = <strong style="color:#555;">'+(score*mult)+' Punkte</strong></div>'
+        +'</div>';
+    });
+    body += '<button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="sdrConfirmDay()">'+SDR_DAYS[sd.currentDay]+' auswerten ⭕</button>';
+    body += '<div class="spiel-actions" style="margin-top:8px;"><button class="btn btn-danger" onclick="sdrReset()">Zurücksetzen</button></div>';
+  } else if(sd.phase==='dayResult') {
+    const d=sd.currentDay, mult=SDR_MULT[d];
+    const todayWinners=sd.dailyWinners[d]||[];
+    const winBonus=2*mult;
+    body += '<div style="text-align:center;font-weight:800;font-size:16px;margin-bottom:4px;">'+SDR_DAYS[d]+' — Ergebnis</div>';
+    body += '<div style="text-align:center;font-size:12px;color:#888;margin-bottom:10px;">Multiplikator ×'+mult+(todayWinners.length>0?' · Tagessieger: +'+winBonus+' Pkt':'')+'</div>';
+    const todaySorted=[...sd.teams.map((_,i)=>i)].sort((a,b)=>(sd.scores[b]?.[d]||0)-(sd.scores[a]?.[d]||0));
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;">Heutige Würfe</div>';
+    todaySorted.forEach(ti=>{
+      const t=sd.teams[ti], pins=sd.scores[ti]?.[d]||0, isWin=todayWinners.includes(ti);
+      body += '<div style="display:flex;align-items:center;padding:7px 10px;background:'+(isWin?'#e8f5e9':'#f5f4f0')+';border-radius:8px;margin-bottom:4px;font-size:13px;">'
+        +'<span style="flex:1;"><strong>Team '+(ti+1)+'</strong> <span style="font-size:11px;color:#888;">'+t.members.map(p=>p.trim()).join(' & ')+'</span></span>'
+        +'<span style="font-weight:700;margin-right:8px;">'+pins+' Holz</span>'
+        +'<span style="font-weight:700;color:#2980b9;">'+pins*mult+(isWin?'+'+winBonus:'')+' Pkt</span>'
+        +(isWin?' <span style="margin-left:5px;font-size:16px;">⭕</span>':'')
+        +'</div>';
+    });
+    const runTotals=sdrGetTotals(sd,d);
+    const runRanked=[...sd.teams.map((_,i)=>i)].sort((a,b)=>runTotals[b]-runTotals[a]);
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin:10px 0 5px;">Gesamtstand</div>';
+    runRanked.forEach((ti,rank)=>{
+      const t=sd.teams[ti];
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#f5f4f0;border-radius:6px;margin-bottom:3px;font-size:13px;">'
+        +'<span><span style="font-weight:700;color:#ccc;margin-right:5px;">'+(rank+1)+'.</span>'
+        +'<strong>Team '+(ti+1)+'</strong> <span style="font-size:11px;color:#aaa;">'+t.members.map(p=>p.trim()).join(' & ')+'</span></span>'
+        +'<span style="font-weight:700;">'+runTotals[ti]+' Pkt</span>'
+        +'</div>';
+    });
+    const isLast=d>=5;
+    body += '<button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="sdrNextDay()">'
+      +(isLast?'Endergebnis anzeigen →':'Weiter zu '+SDR_DAYS[d+1]+' →')+'</button>';
+    body += '<div class="spiel-actions" style="margin-top:8px;"><button class="btn btn-danger" onclick="sdrReset()">Zurücksetzen</button></div>';
+  } else if(sd.phase==='done') {
+    const totals=sd.totals||{};
+    const ranked=[...sd.teams.map((_,i)=>i)].sort((a,b)=>(totals[b]||0)-(totals[a]||0));
+    const maxT=ranked.length>0?(totals[ranked[0]]||0):0;
+    const winnerIdxs=ranked.filter(ti=>(totals[ti]||0)===maxT);
+    const wnames=winnerIdxs.map(ti=>'Team '+(ti+1)).join(' & ');
+    body += '<div class="vg-winner-banner">🏆 '+wnames+' gewinnt!</div>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Endstand</div>';
+    ranked.forEach((ti,rank)=>{
+      const t=sd.teams[ti], pts=totals[ti]||0;
+      const isW=winnerIdxs.includes(ti), isL=(sd.loserTeamIdxs||[]).includes(ti);
+      body += '<div style="padding:7px 12px;background:'+(isW?'#e8f5e9':isL?'#fde8e8':'#f5f4f0')+';border-radius:8px;margin-bottom:4px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +'<span style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">'
+        +'<span style="color:#ccc;">'+(rank+1)+'.</span>Team '+(ti+1)
+        +(isL&&!isW?'<span style="font-size:11px;font-weight:700;background:#fde8e8;color:#c0392b;border:1px solid #f5c6c6;border-radius:4px;padding:1px 5px;">Verlierer</span>':'')
+        +'</span>'
+        +'<span style="font-weight:700;font-size:14px;color:'+(isL&&!isW?'#c0392b':'#1a1a1a')+';">'+pts+' Pkt</span>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#888;margin-top:2px;">'+t.members.map(p=>p.trim()).join(' & ')+'</div>'
+        +'</div>';
+    });
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin:10px 0 5px;">Tagesübersicht</div>';
+    body += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">';
+    body += '<thead><tr><th style="text-align:left;padding:4px 3px;color:#888;white-space:nowrap;">Team</th>';
+    SDR_DAYS.forEach((day,i)=>{
+      body += '<th style="text-align:center;padding:4px 3px;color:#888;font-size:10px;">'+day.slice(0,2)+'<br><span style="color:#aaa;">×'+SDR_MULT[i]+'</span></th>';
+    });
+    body += '<th style="text-align:center;padding:4px 3px;color:#555;font-weight:700;">∑</th></tr></thead><tbody>';
+    ranked.forEach(ti=>{
+      body += '<tr><td style="padding:4px 3px;font-size:11px;font-weight:700;white-space:nowrap;">T'+(ti+1)+'</td>';
+      for(let dIdx=0;dIdx<6;dIdx++) {
+        const pins=sd.scores[ti]?.[dIdx]||0, m=SDR_MULT[dIdx];
+        const isW=(sd.dailyWinners[dIdx]||[]).includes(ti);
+        const dayPts=pins*m+(isW?2*m:0);
+        body += '<td style="text-align:center;padding:4px 3px;background:'+(isW?'#e8f5e9':'')+';font-size:10px;">'
+          +dayPts+(isW?'<br><span style="font-size:9px;">⭕</span>':'')+'</td>';
+      }
+      body += '<td style="text-align:center;padding:4px 3px;font-weight:700;">'+(totals[ti]||0)+'</td></tr>';
+    });
+    body += '</tbody></table></div>';
+    body += '<div style="margin-top:12px;"><button class="btn btn-danger" style="width:100%;" onclick="sdrReset()">Neues Rennen</button></div>';
+  }
+  return '<div class="spiel-card">'
+    +'<div class="spiel-header" onclick="toggleSdr()">'
+    +'<div><div class="spiel-title">🚴 6-Tage-Rennen</div>'
+    +'<div class="spiel-meta">2er-Teams · Mo–Sa · Tagessieger ⭕</div></div>'
+    +'<span class="spiel-chevron'+(sd.open?' open':'')+'" >&#8964;</span>'
+    +'</div>'
+    +'<div class="spiel-body'+(sd.open?' open':'')+'">'
+    +'<div class="spiel-desc">2 Spieler werden per Los als Team zusammengelost. Jeden Tag wirft jeder Partner zweimal im Abräumen-Bild. Punkte = Hölzer × Tag (Mo=1, Di=2 … Sa=6). Tagessieger erhält +2×Multiplikator Bonuspunkte (⭕). Sieger nach 6 Tagen ist das Team mit den meisten Punkten.</div>'
     +body
     +'</div>'
     +'</div>';
