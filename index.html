@@ -651,7 +651,7 @@ let state = {
   },
   vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
   busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
-  wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
+  wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, maxStrikes:20, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -2825,6 +2825,7 @@ function toggleWdmsd() { state.wdmsd.open=!state.wdmsd.open; renderSpiele(); }
 function wdmsdSetMode(m) { state.wdmsd.mode=m; renderSpiele(); }
 function wdmsdSetRounds(n) { state.wdmsd.totalRounds=Math.max(1,Math.min(20,n)); renderSpiele(); }
 function wdmsdSetLosers(n) { const w=state.wdmsd; w.loserCount=Math.max(1,Math.min(w.playerOrder.length>1?w.playerOrder.length-1:10,n)); renderSpiele(); }
+function wdmsdSetMaxStrikes(n) { state.wdmsd.maxStrikes=Math.max(1,Math.min(50,n)); renderSpiele(); }
 function wdmsdRandomOrder() {
   const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
   state.wdmsd.playerOrder=[...aktiv].sort(()=>Math.random()-0.5);
@@ -2869,7 +2870,7 @@ function wdmsdProcessRound() {
   active.forEach(p=>{ w.strikes[p]=(w.strikes[p]||0)+ns[p]; });
   w.lastRoundLog=log; w.lastRoundStrikes=ns; w.gameOver=false;
   if(w.mode==='elimination') {
-    active.forEach(p=>{ if(w.strikes[p]>=20&&!w.eliminated.includes(p)) w.eliminated.push(p); });
+    active.forEach(p=>{ if(w.strikes[p]>=w.maxStrikes&&!w.eliminated.includes(p)) w.eliminated.push(p); });
     const remaining=w.playerOrder.filter(p=>!w.eliminated.includes(p));
     if(remaining.length<=1) { w.gameOver=true; w.winners=[...remaining]; w.winner=remaining[0]||null; }
   } else if(w.mode==='rounds'&&w.currentRound>=w.totalRounds) {
@@ -2910,7 +2911,7 @@ function renderWdmsdCard() {
       +'<div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px;">Spielmodus</div>'
       +'<div style="display:flex;gap:6px;">'
       +'<button class="btn'+(isR?' btn-primary':'')+'" style="flex:1;font-size:12px;padding:7px 4px;" onclick="wdmsdSetMode(\'rounds\')">Wenigste Striche</button>'
-      +'<button class="btn'+(isE?' btn-primary':'')+'" style="flex:1;font-size:12px;padding:7px 4px;" onclick="wdmsdSetMode(\'elimination\')">Ausscheiden bei 20</button>'
+      +'<button class="btn'+(isE?' btn-primary':'')+'" style="flex:1;font-size:12px;padding:7px 4px;" onclick="wdmsdSetMode(\'elimination\')">Ausscheiden</button>'
       +'</div></div>';
     if(isR) {
       body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
@@ -2918,6 +2919,14 @@ function renderWdmsdCard() {
         +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetRounds('+(w.totalRounds-1)+')">−</button>'
         +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+w.totalRounds+'</span>'
         +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetRounds('+(w.totalRounds+1)+')">+</button>'
+        +'</div>';
+    }
+    if(isE) {
+      body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+        +'<span style="font-size:13px;font-weight:500;flex:1;">Striche zum Ausscheiden</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetMaxStrikes('+(w.maxStrikes-1)+')">−</button>'
+        +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+w.maxStrikes+'</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="wdmsdSetMaxStrikes('+(w.maxStrikes+1)+')">+</button>'
         +'</div>';
     }
     body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
@@ -2942,7 +2951,7 @@ function renderWdmsdCard() {
   } else if(w.phase==='playing') {
     const active=w.playerOrder.filter(p=>!w.eliminated.includes(p));
     const cur=active[w.currentIdx];
-    const rLabel=w.mode==='rounds'?'Runde '+w.currentRound+' von '+w.totalRounds:'Runde '+w.currentRound+' · Ausscheiden bei 20';
+    const rLabel=w.mode==='rounds'?'Runde '+w.currentRound+' von '+w.totalRounds:'Runde '+w.currentRound+' · Ausscheiden bei '+w.maxStrikes;
     body += '<div style="text-align:center;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">'+rLabel+'</div>';
     body += '<div class="vg-turn-badge t1" style="margin-bottom:10px;">🎳 '+esc(cur)+' ist dran</div>';
     body += '<div style="margin-bottom:10px;">';
