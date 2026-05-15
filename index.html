@@ -652,6 +652,7 @@ let state = {
   vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
   busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
   wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, maxStrikes:20, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
+  miteinander: { open:false, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, scores:{}, lastRoundScores:{}, lastRoundGroups:{}, winner:null, winners:[], loserCount:1, gameOver:false, penaltiesApplied:false, phase:'setup' },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -983,6 +984,7 @@ function renderSpiele() {
   html += renderVierGewinntCard();
   html += renderBusfahrenCard();
   html += renderWdmsdCard();
+  html += renderMiteinanderCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -2817,6 +2819,7 @@ function resetAllGames() {
   vg.currentTeam = 0; vg.winner = null; vg.winCells = []; vg.lastDrop = null; vg.team1 = []; vg.team2 = [];
   const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[];
   const wd = state.wdmsd; Object.assign(wd,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
+  const mi = state.miteinander; Object.assign(mi,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},scores:{},lastRoundScores:{},lastRoundGroups:{},winner:null,winners:[],gameOver:false,penaltiesApplied:false});
   state.counts = {};
 }
 
@@ -3024,6 +3027,189 @@ function renderWdmsdCard() {
     +'</div>'
     +'<div class="spiel-body'+(w.open?' open':'')+'">'
     +'<div class="spiel-desc">Jeder Spieler konkurriert mit seinem Vorder- und Hintermann. Bessere Würfe geben dem Konkurrenten einen Strich — schlechtere Würfe geben dir selbst einen Strich. Bei Gleichstand kein Strich. Ungültige Würfe werden immer mit einem Strich bestraft.</div>'
+    +body
+    +'</div>'
+    +'</div>';
+}
+
+// ── Miteinander ─────────────────────────────────────────
+function toggleMiteinander() { state.miteinander.open=!state.miteinander.open; renderSpiele(); }
+function mitSetLosers(n) { const m=state.miteinander; m.loserCount=Math.max(1,Math.min(m.playerOrder.length>1?m.playerOrder.length-1:10,n)); renderSpiele(); }
+function mitRandomOrder() {
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  state.miteinander.playerOrder=[...aktiv].sort(()=>Math.random()-0.5);
+  renderSpiele();
+}
+function mitStart() {
+  const m=state.miteinander;
+  if(m.playerOrder.length<2) return;
+  m.phase='playing'; m.currentRound=1; m.currentIdx=0;
+  m.roundThrows={}; m.scores={}; m.lastRoundScores={}; m.lastRoundGroups={};
+  m.winner=null; m.winners=[]; m.gameOver=false; m.penaltiesApplied=false;
+  m.playerOrder.forEach(p=>{m.scores[p]=0;});
+  renderSpiele();
+}
+function mitGetOrder(m) {
+  const n=m.playerOrder.length, start=(m.currentRound-1)%n;
+  return [...m.playerOrder.slice(start),...m.playerOrder.slice(0,start)];
+}
+function mitThrow(value) {
+  const m=state.miteinander;
+  const order=mitGetOrder(m);
+  const player=order[m.currentIdx];
+  if(!player) return;
+  m.roundThrows[player]=value;
+  m.currentIdx++;
+  if(m.currentIdx>=order.length) mitProcessRound();
+  renderSpiele();
+}
+function mitProcessRound() {
+  const m=state.miteinander;
+  const active=m.playerOrder;
+  const groups={};
+  active.forEach(p=>{
+    const v=m.roundThrows[p];
+    if(v!==undefined&&v!=='invalid') {
+      if(!groups[v]) groups[v]=[];
+      groups[v].push(p);
+    }
+  });
+  const rs={};
+  Object.entries(groups).forEach(([val,players])=>{
+    const score=parseInt(val)*players.length;
+    players.forEach(p=>{ rs[p]=score; });
+  });
+  active.forEach(p=>{ if(!(p in rs)) rs[p]=0; });
+  active.forEach(p=>{ m.scores[p]=(m.scores[p]||0)+rs[p]; });
+  m.lastRoundScores=rs; m.lastRoundGroups=groups;
+  if(m.currentRound>=m.playerOrder.length) {
+    const maxS=Math.max(...active.map(p=>m.scores[p]||0));
+    m.winners=active.filter(p=>(m.scores[p]||0)===maxS);
+    m.winner=m.winners.length===1?m.winners[0]:null; m.gameOver=true;
+  } else { m.gameOver=false; }
+  m.phase='roundResult';
+}
+function mitNextRound() {
+  const m=state.miteinander;
+  if(m.gameOver) {
+    m.phase='done';
+    if(!m.penaltiesApplied) {
+      m.penaltiesApplied=true;
+      const sorted=[...m.playerOrder].sort((a,b)=>(m.scores[a]||0)-(m.scores[b]||0));
+      const losers=sorted.slice(0,m.loserCount).filter(p=>state.anwesend.includes(p));
+      if(losers.length>0) applyGamePenalty(losers);
+    }
+  } else {
+    m.currentRound++; m.currentIdx=0; m.roundThrows={}; m.phase='playing';
+  }
+  renderSpiele();
+}
+function mitReset() {
+  const m=state.miteinander;
+  Object.assign(m,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,
+    roundThrows:{},scores:{},lastRoundScores:{},lastRoundGroups:{},
+    winner:null,winners:[],gameOver:false,penaltiesApplied:false});
+  renderSpiele();
+}
+function renderMiteinanderCard() {
+  const m=state.miteinander;
+  let body='';
+  if(m.phase==='setup') {
+    body += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="mitRandomOrder()">🎲 Reihenfolge auslosen</button>';
+    if(m.playerOrder.length>0) {
+      body += '<div style="margin-bottom:12px;">';
+      m.playerOrder.forEach((p,i)=>{
+        body += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f5f4f0;border-radius:6px;margin-bottom:3px;">'
+          +'<span style="font-size:12px;font-weight:700;color:#bbb;min-width:18px;">'+(i+1)+'.</span>'
+          +'<div class="avatar" style="background:'+avatarColor(p)+';width:22px;height:22px;font-size:10px;flex-shrink:0;">'+initials(p)+'</div>'
+          +'<span style="font-size:13px;">'+esc(p)+'</span>'
+          +'</div>';
+      });
+      body += '</div>';
+      body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+        +'<span style="font-size:13px;font-weight:500;flex:1;">Verlierer</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="mitSetLosers('+(m.loserCount-1)+')">−</button>'
+        +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+m.loserCount+'</span>'
+        +'<button class="btn" style="padding:5px 12px;" onclick="mitSetLosers('+(m.loserCount+1)+')">+</button>'
+        +'</div>';
+    }
+    body += '<button class="btn btn-primary" style="width:100%;"'+(m.playerOrder.length>=2?'':' disabled')+' onclick="mitStart()">Spiel starten →</button>';
+  } else if(m.phase==='playing') {
+    const order=mitGetOrder(m);
+    const cur=order[m.currentIdx];
+    const opener=order[0];
+    body += '<div style="text-align:center;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;">Runde '+m.currentRound+' von '+m.playerOrder.length+'</div>';
+    body += '<div style="text-align:center;font-size:11px;color:#aaa;margin-bottom:8px;">Eröffnet von: <strong>'+esc(opener)+'</strong></div>';
+    body += '<div class="vg-turn-badge t1" style="margin-bottom:10px;">🎳 '+esc(cur)+' ist dran</div>';
+    body += '<div style="margin-bottom:10px;">';
+    order.forEach((p,i)=>{
+      const done=i<m.currentIdx, isCur=i===m.currentIdx;
+      const val=m.roundThrows[p];
+      const vs=val==='invalid'?'⚠️':val!==undefined?String(val):'–';
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:'+(isCur?'#dceeff':done?'#f5f4f0':'#fafaf7')+';border-radius:6px;margin-bottom:3px;font-size:13px;">'
+        +'<span style="font-weight:'+(isCur?700:400)+';">'+esc(p)+'</span>'
+        +'<span style="font-weight:700;color:'+(val==='invalid'?'#c0392b':'#1a1a1a')+';">'+vs+'</span>'
+        +'</div>';
+    });
+    body += '</div>';
+    body += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:6px;">';
+    for(let i=0;i<=9;i++) body += '<button class="btn" style="padding:10px 0;font-size:18px;font-weight:700;" onclick="mitThrow('+i+')">'+i+'</button>';
+    body += '</div>';
+    body += '<button class="btn btn-danger" style="width:100%;margin-bottom:14px;" onclick="mitThrow(\'invalid\')">⚠️ Ungültig (0 Punkte)</button>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;">Punktestand</div>';
+    [...m.playerOrder].sort((a,b)=>(m.scores[b]||0)-(m.scores[a]||0)).forEach(p=>{
+      body += '<div style="display:flex;justify-content:space-between;padding:3px 10px;font-size:13px;">'
+        +'<span>'+esc(p)+'</span><span style="font-weight:700;">'+(m.scores[p]||0)+'</span></div>';
+    });
+    body += '<div class="spiel-actions" style="margin-top:12px;"><button class="btn btn-danger" onclick="mitReset()">Zurücksetzen</button></div>';
+  } else if(m.phase==='roundResult') {
+    body += '<div style="text-align:center;font-weight:700;font-size:15px;margin-bottom:12px;">Runde '+m.currentRound+' abgeschlossen</div>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Würfe & Partnerschaften</div>';
+    const allGrouped=Object.values(m.lastRoundGroups).flat();
+    Object.entries(m.lastRoundGroups).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).forEach(([val,players])=>{
+      const score=parseInt(val)*players.length;
+      const isPartner=players.length>1;
+      const names=players.map(p=>esc(p)).join(' & ');
+      const calc=isPartner?val+' × '+players.length+' = <strong>'+score+' Pkt</strong>':'<strong>'+val+' Pkt</strong>';
+      body += '<div style="padding:6px 12px;background:'+(isPartner?'#e8f5e9':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:12px;">'
+        +(isPartner?'🤝 ':'')+names+' → '+calc+'</div>';
+    });
+    m.playerOrder.filter(p=>!allGrouped.includes(p)).forEach(p=>{
+      body += '<div style="padding:6px 12px;background:#f5f4f0;border-radius:6px;margin-bottom:4px;font-size:12px;opacity:0.6;">⚠️ '+esc(p)+' → Ungültig (0 Pkt)</div>';
+    });
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 5px;">Punkte gesamt</div>';
+    [...m.playerOrder].sort((a,b)=>(m.scores[b]||0)-(m.scores[a]||0)).forEach(p=>{
+      const earned=m.lastRoundScores[p]||0, total=m.scores[p]||0;
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 10px;font-size:13px;">'
+        +'<span>'+esc(p)+'</span>'
+        +'<span><span style="color:'+(earned>0?'#27ae60':'#888')+';font-weight:700;">'+(earned>0?'+'+earned:'±0')+'</span> → <strong>'+total+'</strong></span>'
+        +'</div>';
+    });
+    body += '<div style="display:flex;gap:8px;margin-top:12px;">'
+      +'<button class="btn btn-danger" style="flex:1;" onclick="mitReset()">Zurücksetzen</button>'
+      +'<button class="btn btn-primary" style="flex:2;" onclick="mitNextRound()">'+(m.gameOver?'Ergebnis anzeigen →':'Nächste Runde →')+'</button>'
+      +'</div>';
+  } else if(m.phase==='done') {
+    const wnames=(m.winners||[]).map(p=>esc(p)).join(' & ');
+    body += '<div class="vg-winner-banner">'+(wnames?'🏆 '+wnames+' gewinnt!':'🤝 Unentschieden')+'</div>';
+    body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Endstand</div>';
+    [...m.playerOrder].sort((a,b)=>(m.scores[b]||0)-(m.scores[a]||0)).forEach((p,i)=>{
+      const s=m.scores[p]||0, isW=(m.winners||[]).includes(p);
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;">'
+        +'<span><span style="font-weight:700;color:#ccc;margin-right:6px;">'+(i+1)+'.</span>'+esc(p)+'</span>'
+        +'<span style="font-weight:700;">'+s+' Punkte</span>'
+        +'</div>';
+    });
+    body += '<div style="margin-top:12px;"><button class="btn btn-danger" style="width:100%;" onclick="mitReset()">Neues Spiel</button></div>';
+  }
+  return '<div class="spiel-card">'
+    +'<div class="spiel-header" onclick="toggleMiteinander()">'
+    +'<div><div class="spiel-title">🤝 Miteinander</div>'
+    +'<div class="spiel-meta">Gleiche Zahlen = Partner · Höchste Punktzahl gewinnt</div></div>'
+    +'<span class="spiel-chevron'+(m.open?' open':'')+'" >&#8964;</span>'
+    +'</div>'
+    +'<div class="spiel-body'+(m.open?' open':'')+'">'
+    +'<div class="spiel-desc">Die Reihenfolge wird ausgelost — so viele Runden wie Teilnehmer. Werfen mehrere Spieler dieselbe Zahl, werden sie Partner und bekommen die Summe gutgeschrieben (z.B. 2× Sechser = je 12 Punkte). Alleinige Würfe zählen den Nennwert. Sieger hat die meisten Punkte.</div>'
     +body
     +'</div>'
     +'</div>';
