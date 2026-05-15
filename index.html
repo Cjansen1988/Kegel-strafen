@@ -649,8 +649,8 @@ let state = {
     penaltiesApplied: false,
     lastReset: [],    // [{ name, reason }] reset on last throw
   },
-  vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
-  busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
+  vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null, penaltiesApplied: false },
+  busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [], loserCount: 1, penaltiesApplied: false },
   wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, maxStrikes:20, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   miteinander: { open:false, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, scores:{}, lastRoundScores:{}, lastRoundGroups:{}, winner:null, winners:[], loserCount:1, gameOver:false, penaltiesApplied:false, phase:'setup' },
   strafen: {
@@ -2642,7 +2642,11 @@ function vgDrop(col) {
   const wc = vgCheckWin(vg.board, col, dropRow, vg.currentTeam);
   if (wc) {
     vg.winner = vg.currentTeam; vg.winCells = wc;
-    applyGamePenalty();
+    if(!vg.penaltiesApplied) {
+      vg.penaltiesApplied = true;
+      const losingTeam = (vg.currentTeam===0 ? vg.team2 : vg.team1).filter(p=>state.anwesend.includes(p));
+      if(losingTeam.length>0) applyGamePenalty(losingTeam);
+    }
   } else {
     const draw = vg.board.every(c=>c.every(cell=>cell!==null));
     if (draw) { vg.winner=-1; vg.winCells=[]; }
@@ -2699,6 +2703,12 @@ function renderBusfahrenCard() {
       +(assignedHtml?'<div style="margin-bottom:12px;">'+assignedHtml+'</div>':'')
       +'<div class="bf-numpad">'+numBtns+'</div>'
       +'<button class="bf-pumpe-btn" onclick="bfAssign(0)" '+(!currentPlayer?'disabled':'')+'>💨 Pumpe (0) → Bus 0</button>'
+      +'<div style="display:flex;align-items:center;gap:12px;margin:10px 0 4px;">'
+      +'<span style="font-size:13px;font-weight:500;flex:1;">Verlierer</span>'
+      +'<button class="btn" style="padding:5px 12px;" onclick="bfSetLosers('+(bf.loserCount-1)+')">−</button>'
+      +'<span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;">'+bf.loserCount+'</span>'
+      +'<button class="btn" style="padding:5px 12px;" onclick="bfSetLosers('+(bf.loserCount+1)+')">+</button>'
+      +'</div>'
       +'<div style="font-size:12px;color:#bbb;text-align:center;">'+bf.currentAssignIdx+' von '+aktiv.length+' zugewiesen</div>';
   } else {
     const busNums = Object.keys(bf.buses).map(Number).sort((a,b)=>a-b);
@@ -2757,6 +2767,7 @@ function renderBusfahrenCard() {
 }
 
 function toggleBusfahren() { state.busfahren.open=!state.busfahren.open; renderSpiele(); }
+function bfSetLosers(n) { const bf=state.busfahren; bf.loserCount=Math.max(1,Math.min(state.spieler.length>1?state.spieler.length-1:10,n)); renderSpiele(); }
 
 function bfAssign(num) {
   const bf=state.busfahren;
@@ -2781,7 +2792,16 @@ function bfThrow(num) {
   if(bf.buses[num]!==undefined){
     bf.buses[num].tires++;
     msg=player.trim()+' wirft '+num+' → Bus '+num+': '+bf.buses[num].tires+'/6 Reifen';
-    if(bf.buses[num].tires>=6){bf.winner=num;bf.phase='done';applyGamePenalty();}
+    if(bf.buses[num].tires>=6){
+      bf.winner=num; bf.phase='done';
+      if(!bf.penaltiesApplied) {
+        bf.penaltiesApplied=true;
+        const allP=state.spieler.filter(s=>state.anwesend.includes(s)&&bf.assignments[s]!==undefined);
+        const sorted=[...allP].sort((a,b)=>(bf.buses[bf.assignments[a]]?.tires||0)-(bf.buses[bf.assignments[b]]?.tires||0));
+        const losers=sorted.slice(0,bf.loserCount);
+        if(losers.length>0) applyGamePenalty(losers);
+      }
+    }
   } else {
     msg=player.trim()+' wirft '+num+' — kein Bus '+num;
   }
@@ -2816,8 +2836,8 @@ function resetAllGames() {
   state.madn.winner = null; state.madn.penaltiesApplied = false; state.madn.lastReset = [];
   const vg = state.vierGewinnt;
   vg.board = Array.from({length:9}, () => new Array(9).fill(null));
-  vg.currentTeam = 0; vg.winner = null; vg.winCells = []; vg.lastDrop = null; vg.team1 = []; vg.team2 = [];
-  const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[];
+  vg.currentTeam = 0; vg.winner = null; vg.winCells = []; vg.lastDrop = null; vg.team1 = []; vg.team2 = []; vg.penaltiesApplied = false;
+  const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[]; bf.penaltiesApplied=false;
   const wd = state.wdmsd; Object.assign(wd,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
   const mi = state.miteinander; Object.assign(mi,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},scores:{},lastRoundScores:{},lastRoundGroups:{},winner:null,winners:[],gameOver:false,penaltiesApplied:false});
   state.counts = {};
@@ -3010,10 +3030,12 @@ function renderWdmsdCard() {
     const wnames=(w.winners||[]).map(p=>esc(p)).join(' & ');
     body += '<div class="vg-winner-banner">'+(wnames?'🏆 '+wnames+' gewinnt!':'🤝 Kein Sieger')+'</div>';
     body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Endstand</div>';
+    const wdLoserSorted=[...w.playerOrder].sort((a,b)=>(w.strikes[b]||0)-(w.strikes[a]||0));
+    const wdLoserSet=new Set(wdLoserSorted.slice(0,w.loserCount).map(p=>p));
     [...w.playerOrder].sort((a,b)=>(w.strikes[a]||0)-(w.strikes[b]||0)).forEach((p,i)=>{
-      const s=w.strikes[p]||0, isW=(w.winners||[]).includes(p), elim=w.eliminated.includes(p);
-      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;opacity:'+(elim?.5:1)+';">'
-        +'<span><span style="font-weight:700;color:#ccc;margin-right:6px;">'+(i+1)+'.</span>'+esc(p)+'</span>'
+      const s=w.strikes[p]||0, isW=(w.winners||[]).includes(p), isL=wdLoserSet.has(p), elim=w.eliminated.includes(p);
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':isL?'#fde8e8':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;opacity:'+(elim?.5:1)+';">'
+        +'<span style="display:flex;align-items:center;gap:6px;"><span style="font-weight:700;color:#ccc;">'+(i+1)+'.</span>'+esc(p)+(isL&&!isW?'<span style="font-size:11px;font-weight:700;background:#fde8e8;color:#c0392b;border:1px solid #f5c6c6;border-radius:4px;padding:1px 5px;">Verlierer</span>':'')+'</span>'
         +'<span style="font-weight:700;">'+s+' Strich'+(s===1?'':'e')+'</span>'
         +'</div>';
     });
@@ -3193,10 +3215,12 @@ function renderMiteinanderCard() {
     const wnames=(m.winners||[]).map(p=>esc(p)).join(' & ');
     body += '<div class="vg-winner-banner">'+(wnames?'🏆 '+wnames+' gewinnt!':'🤝 Unentschieden')+'</div>';
     body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Endstand</div>';
+    const mitLoserSorted=[...m.playerOrder].sort((a,b)=>(m.scores[a]||0)-(m.scores[b]||0));
+    const mitLoserSet=new Set(mitLoserSorted.slice(0,m.loserCount).map(p=>p));
     [...m.playerOrder].sort((a,b)=>(m.scores[b]||0)-(m.scores[a]||0)).forEach((p,i)=>{
-      const s=m.scores[p]||0, isW=(m.winners||[]).includes(p);
-      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;">'
-        +'<span><span style="font-weight:700;color:#ccc;margin-right:6px;">'+(i+1)+'.</span>'+esc(p)+'</span>'
+      const s=m.scores[p]||0, isW=(m.winners||[]).includes(p), isL=mitLoserSet.has(p);
+      body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:'+(isW?'#e8f5e9':isL?'#fde8e8':'#f5f4f0')+';border-radius:6px;margin-bottom:4px;font-size:13px;">'
+        +'<span style="display:flex;align-items:center;gap:6px;"><span style="font-weight:700;color:#ccc;">'+(i+1)+'.</span>'+esc(p)+(isL&&!isW?'<span style="font-size:11px;font-weight:700;background:#fde8e8;color:#c0392b;border:1px solid #f5c6c6;border-radius:4px;padding:1px 5px;">Verlierer</span>':'')+'</span>'
         +'<span style="font-weight:700;">'+s+' Punkte</span>'
         +'</div>';
     });
