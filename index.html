@@ -653,6 +653,7 @@ let state = {
   busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [], loserCount: 1, penaltiesApplied: false },
   wdmsd: { open:false, mode:'rounds', totalRounds:3, loserCount:1, maxStrikes:20, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, strikes:{}, eliminated:[], winner:null, winners:[], lastRoundLog:[], lastRoundStrikes:{}, gameOver:false, penaltiesApplied:false, phase:'setup' },
   miteinander: { open:false, playerOrder:[], currentIdx:0, currentRound:1, roundThrows:{}, scores:{}, lastRoundScores:{}, lastRoundGroups:{}, winner:null, winners:[], loserCount:1, gameOver:false, penaltiesApplied:false, phase:'setup' },
+  setzkasten: { open:false, phase:'setup', playerOrder:[], currentRound:1, currentIdx:0, grid:{}, pendingValue:null, colLosers:{}, penaltiesApplied:false, gameOver:false },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -985,6 +986,7 @@ function renderSpiele() {
   html += renderBusfahrenCard();
   html += renderWdmsdCard();
   html += renderMiteinanderCard();
+  html += renderSetzkastenCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -2672,6 +2674,8 @@ function vgReset() {
 
 // ── Busfahren ─────────────────────────────────────────────────
 const BF_COLORS = ['#888','#e74c3c','#e67e22','#c9a227','#27ae60','#16a085','#2980b9','#8e44ad','#e91e8c','#2c3e50'];
+const SK_COLS = [0.20, 0.40, 0.60, 0.80, 1.00];
+const SK_LABELS = ['0,20€','0,40€','0,60€','0,80€','1,00€'];
 
 function renderBusfahrenCard() {
   const bf = state.busfahren;
@@ -2840,6 +2844,7 @@ function resetAllGames() {
   const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[]; bf.penaltiesApplied=false;
   const wd = state.wdmsd; Object.assign(wd,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},strikes:{},eliminated:[],winner:null,winners:[],lastRoundLog:[],lastRoundStrikes:{},gameOver:false,penaltiesApplied:false});
   const mi = state.miteinander; Object.assign(mi,{phase:'setup',playerOrder:[],currentIdx:0,currentRound:1,roundThrows:{},scores:{},lastRoundScores:{},lastRoundGroups:{},winner:null,winners:[],gameOver:false,penaltiesApplied:false});
+  const sk = state.setzkasten; Object.assign(sk,{phase:'setup',playerOrder:[],currentRound:1,currentIdx:0,grid:{},pendingValue:null,colLosers:{},penaltiesApplied:false,gameOver:false});
   state.counts = {};
 }
 
@@ -3234,6 +3239,178 @@ function renderMiteinanderCard() {
     +'</div>'
     +'<div class="spiel-body'+(m.open?' open':'')+'">'
     +'<div class="spiel-desc">Die Reihenfolge wird ausgelost — so viele Runden wie Teilnehmer. Werfen mehrere Spieler dieselbe Zahl, werden sie Partner und bekommen die Summe gutgeschrieben (z.B. 2× Sechser = je 12 Punkte). Alleinige Würfe zählen den Nennwert. Sieger hat die meisten Punkte.</div>'
+    +body
+    +'</div>'
+    +'</div>';
+}
+
+// ── Setzkasten ──────────────────────────────────────────
+function toggleSetzkasten() { state.setzkasten.open=!state.setzkasten.open; renderSpiele(); }
+function skRandomOrder() {
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  state.setzkasten.playerOrder=[...aktiv].sort(()=>Math.random()-0.5);
+  renderSpiele();
+}
+function skStart() {
+  const sk=state.setzkasten;
+  if(sk.playerOrder.length<2) return;
+  sk.phase='playing'; sk.currentRound=1; sk.currentIdx=0; sk.pendingValue=null;
+  sk.grid={}; sk.colLosers={}; sk.penaltiesApplied=false; sk.gameOver=false;
+  sk.playerOrder.forEach(p=>{ sk.grid[p]=[null,null,null,null,null]; });
+  renderSpiele();
+}
+function skThrow(value) {
+  const sk=state.setzkasten;
+  const cur=sk.playerOrder[sk.currentIdx];
+  sk.pendingValue=value;
+  if(value===9 && sk.grid[cur][4]===null) { skAssign(4); return; }
+  renderSpiele();
+}
+function skAssign(colIdx) {
+  const sk=state.setzkasten;
+  const cur=sk.playerOrder[sk.currentIdx];
+  if(sk.grid[cur][colIdx]!==null) return;
+  sk.grid[cur][colIdx]=sk.pendingValue;
+  sk.pendingValue=null;
+  sk.currentIdx++;
+  if(sk.currentIdx>=sk.playerOrder.length) { sk.currentRound++; sk.currentIdx=0; }
+  if(sk.currentRound>5) { skEvaluate(); } else { sk.phase='playing'; }
+  renderSpiele();
+}
+function skEvaluate() {
+  const sk=state.setzkasten;
+  sk.phase='done'; sk.gameOver=true;
+  sk.colLosers={};
+  SK_COLS.forEach((col,ci)=>{
+    const vals=sk.playerOrder.map(p=>({p,v:sk.grid[p]?.[ci]})).filter(x=>x.v!==null&&x.v!==undefined);
+    if(!vals.length){ sk.colLosers[ci]=[]; return; }
+    const minV=Math.min(...vals.map(x=>x.v));
+    sk.colLosers[ci]=vals.filter(x=>x.v===minV).map(x=>x.p);
+  });
+  if(!sk.penaltiesApplied) {
+    sk.penaltiesApplied=true;
+    applySetzkastenPenalties(sk.colLosers);
+  }
+}
+function skReset() {
+  const sk=state.setzkasten;
+  Object.assign(sk,{phase:'setup',playerOrder:[],currentRound:1,currentIdx:0,grid:{},pendingValue:null,colLosers:{},penaltiesApplied:false,gameOver:false});
+  renderSpiele();
+}
+function applySetzkastenPenalties(colLosers) {
+  const colNames=['Setzkasten\n0,20€','Setzkasten\n0,40€','Setzkasten\n0,60€','Setzkasten\n0,80€','Setzkasten\n1,00€'];
+  SK_COLS.forEach((amount,ci)=>{
+    const losers=colLosers[ci]||[];
+    if(!losers.length) return;
+    const stName=colNames[ci];
+    if(!state.strafen.kegel.find(s=>s.name===stName)) state.strafen.kegel.push({name:stName,coins:amount});
+    losers.forEach(player=>{ const k=key(player,'kegel',stName); state.counts[k]=(state.counts[k]||0)+1; });
+  });
+  if(navigator.vibrate) navigator.vibrate([30,40,30]);
+  renderAll();
+}
+function renderSetzkastenCard() {
+  const sk=state.setzkasten;
+  let body='';
+  if(sk.phase==='setup') {
+    body += '<button class="btn" style="width:100%;margin-bottom:10px;" onclick="skRandomOrder()">🎲 Reihenfolge auslosen</button>';
+    if(sk.playerOrder.length>0) {
+      body += '<div style="margin-bottom:12px;">';
+      sk.playerOrder.forEach((p,i)=>{
+        body += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f5f4f0;border-radius:6px;margin-bottom:3px;">'
+          +'<span style="font-size:12px;font-weight:700;color:#bbb;min-width:18px;">'+(i+1)+'.</span>'
+          +'<div class="avatar" style="background:'+avatarColor(p)+';width:22px;height:22px;font-size:10px;flex-shrink:0;">'+initials(p)+'</div>'
+          +'<span style="font-size:13px;">'+esc(p)+'</span>'
+          +'</div>';
+      });
+      body += '</div>';
+    }
+    body += '<button class="btn btn-primary" style="width:100%;"'+(sk.playerOrder.length>=2?'':' disabled')+' onclick="skStart()">Spiel starten →</button>';
+  } else {
+    // Grid
+    body += '<div style="overflow-x:auto;margin-bottom:12px;">';
+    body += '<table style="width:100%;border-collapse:collapse;">';
+    body += '<thead><tr><th style="text-align:left;padding:5px 3px;font-size:10px;font-weight:600;color:#888;">Spieler</th>';
+    SK_LABELS.forEach((lbl,ci)=>{
+      const isLoserCol=sk.phase==='done'&&(sk.colLosers[ci]||[]).length>0;
+      body += '<th style="text-align:center;padding:5px 3px;font-size:11px;font-weight:700;color:'+(isLoserCol?'#c0392b':'#555')+';min-width:42px;">'+lbl+'</th>';
+    });
+    body += '</tr></thead><tbody>';
+    const cur=sk.phase==='playing'?sk.playerOrder[sk.currentIdx]:null;
+    sk.playerOrder.forEach(p=>{
+      const isCur=p===cur;
+      body += '<tr style="background:'+(isCur?'#dceeff':'transparent')+';">'
+        +'<td style="padding:5px 3px;font-size:12px;font-weight:'+(isCur?700:400)+';white-space:nowrap;">'+esc(p)+'</td>';
+      SK_COLS.forEach((col,ci)=>{
+        const val=sk.grid[p]?.[ci];
+        const isL=sk.phase==='done'&&(sk.colLosers[ci]||[]).includes(p);
+        const bg=sk.phase==='done'?(isL?'#fde8e8':'#e8f5e9'):(val!==null&&val!==undefined?'#f5f4f0':'');
+        body += '<td style="text-align:center;padding:5px 3px;font-size:15px;font-weight:700;background:'+bg+';border-radius:4px;">'
+          +(val!==null&&val!==undefined?String(val):'<span style="color:#ddd;font-size:11px;">—</span>')+'</td>';
+      });
+      body += '</tr>';
+    });
+    body += '</tbody></table></div>';
+
+    if(sk.phase==='playing') {
+      const cur=sk.playerOrder[sk.currentIdx];
+      if(sk.pendingValue===null) {
+        body += '<div style="text-align:center;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Runde '+sk.currentRound+' von 5</div>';
+        body += '<div class="vg-turn-badge t1" style="margin-bottom:10px;">🎳 '+esc(cur)+' ist dran</div>';
+        body += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:6px;">';
+        for(let i=0;i<=9;i++) body += '<button class="btn" style="padding:10px 0;font-size:18px;font-weight:700;" onclick="skThrow('+i+')">'+i+'</button>';
+        body += '</div>';
+      } else {
+        const v=sk.pendingValue;
+        const is9=(v===9);
+        body += '<div style="text-align:center;margin-bottom:10px;">'
+          +'<div style="font-size:13px;font-weight:600;color:#555;margin-bottom:4px;">'+esc(cur)+' hat geworfen:</div>'
+          +'<div style="font-size:40px;font-weight:900;color:#2980b9;line-height:1;">'+v+'</div>'
+          +(is9&&sk.grid[cur][4]===null?'<div style="font-size:12px;color:#e67e22;font-weight:600;margin-top:4px;">Eine 9 muss in die 1,00€-Spalte!</div>':'')
+          +'</div>';
+        body += '<div style="font-size:12px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:8px;">Spalte wählen:</div>';
+        body += '<div style="display:flex;gap:5px;">';
+        SK_COLS.forEach((col,ci)=>{
+          const filled=sk.grid[cur][ci]!==null;
+          const blocked=filled||(is9&&ci!==4&&sk.grid[cur][4]===null);
+          body += '<button class="btn'+(blocked?'':' btn-primary')+'" style="flex:1;padding:10px 2px;font-size:12px;font-weight:700;" '+(blocked?'disabled':'')+' onclick="skAssign('+ci+')">'+SK_LABELS[ci]+(filled?'<br><span style="font-size:10px;font-weight:400;color:#aaa;">('+sk.grid[cur][ci]+')</span>':'')+'</button>';
+        });
+        body += '</div>';
+      }
+      body += '<div class="spiel-actions" style="margin-top:12px;"><button class="btn btn-danger" onclick="skReset()">Zurücksetzen</button></div>';
+    } else if(sk.phase==='done') {
+      const playerTotals={};
+      sk.playerOrder.forEach(p=>{ playerTotals[p]=0; });
+      body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Verlierer je Spalte</div>';
+      SK_COLS.forEach((amount,ci)=>{
+        const losers=sk.colLosers[ci]||[];
+        if(!losers.length) return;
+        const lnames=losers.map(p=>esc(p)).join(', ');
+        body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#fde8e8;border-radius:6px;margin-bottom:3px;font-size:12px;">'
+          +'<span>'+SK_LABELS[ci]+' → <strong>'+lnames+'</strong></span>'
+          +'<span style="font-weight:700;color:#c0392b;">'+amount.toFixed(2).replace('.',',')+'€</span>'
+          +'</div>';
+        losers.forEach(p=>{ playerTotals[p]+=amount; });
+      });
+      body += '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 5px;">Gesamt</div>';
+      [...sk.playerOrder].sort((a,b)=>(playerTotals[b]||0)-(playerTotals[a]||0)).forEach(p=>{
+        const t=playerTotals[p]||0;
+        body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 12px;background:'+(t>0?'#fde8e8':'#f5f4f0')+';border-radius:6px;margin-bottom:3px;font-size:13px;">'
+          +'<span>'+esc(p)+'</span>'
+          +'<span style="font-weight:700;color:'+(t>0?'#c0392b':'#aaa')+';">'+t.toFixed(2).replace('.',',')+'€</span>'
+          +'</div>';
+      });
+      body += '<div style="margin-top:12px;"><button class="btn btn-danger" style="width:100%;" onclick="skReset()">Neues Spiel</button></div>';
+    }
+  }
+  return '<div class="spiel-card">'
+    +'<div class="spiel-header" onclick="toggleSetzkasten()">'
+    +'<div><div class="spiel-title">📋 Setzen</div>'
+    +'<div class="spiel-meta">5 Spalten · Schlechtester Wurf je Spalte zahlt</div></div>'
+    +'<span class="spiel-chevron'+(sk.open?' open':'')+'" >&#8964;</span>'
+    +'</div>'
+    +'<div class="spiel-body'+(sk.open?' open':'')+'">'
+    +'<div class="spiel-desc">Jeder wirft reihum und ordnet das Ergebnis einer Spalte (0,20€–1,00€) zu. Eine 9 muss immer in die 1,00€-Spalte. Nach 5 Runden: Wer in einer Spalte den niedrigsten Wert hat, zahlt den entsprechenden Betrag. Bei Gleichstand zahlen alle Betroffenen.</div>'
     +body
     +'</div>'
     +'</div>';
