@@ -389,6 +389,39 @@
   .ct-empty { font-size: 13px; color: #bbb; text-align: center; padding: 18px; }
   .ct-footer { display: flex; gap: 8px; }
   .ct-footer .btn { flex: 1; height: 48px; font-size: 15px; }
+
+  /* 4 Gewinnt */
+  .vg-wrap { background: #1a1a2e; border-radius: 12px; padding: 10px; margin-bottom: 2px; }
+  .vg-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin-bottom: 6px; }
+  .vg-cell { aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,0.1); }
+  .vg-cell.t1 { background: #2980d9; }
+  .vg-cell.t2 { background: #e74c3c; }
+  .vg-cell.win-cell { background: #f1c40f; box-shadow: 0 0 0 2px #f39c12; }
+  .vg-col-btns { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+  .vg-col-btn { aspect-ratio: 1; border-radius: 7px; border: none; background: rgba(255,255,255,0.18); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .vg-col-btn:active { background: rgba(255,255,255,0.4); transform: scale(0.88); }
+  .vg-col-btn:disabled { opacity: 0.22; pointer-events: none; }
+  .vg-pumpe-row { margin: 8px 0 0; }
+  .vg-pumpe-btn { width: 100%; padding: 11px; border-radius: 9px; border: 1.5px solid #e0a0a0; background: #fff8f8; color: #c0392b; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .vg-pumpe-btn:active { background: #fde8e8; }
+  .vg-turn-badge { text-align: center; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 8px; margin-bottom: 10px; }
+  .vg-turn-badge.t1 { background: #dceeff; color: #1a6bc0; }
+  .vg-turn-badge.t2 { background: #ffdddd; color: #c01a1a; }
+  .vg-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 15px; font-weight: 600; }
+  .vg-hint { border-radius: 8px; padding: 7px 12px; margin-bottom: 8px; font-size: 13px; text-align: center; }
+  .vg-hint-win { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+  .vg-hint-danger { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+
+  /* Busfahren */
+  .bf-numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 8px; }
+  .bf-num-btn { height: 52px; border-radius: 10px; border: 1.5px solid #d0cdc5; background: #fff; font-size: 22px; font-weight: 800; cursor: pointer; color: #1a1a1a; }
+  .bf-num-btn:active { background: #1a1a1a; color: #fff; transform: scale(0.93); }
+  .bf-num-btn:disabled { opacity: 0.3; pointer-events: none; }
+  .bf-pumpe-btn { width: 100%; height: 46px; border-radius: 10px; border: 1.5px solid #e0a0a0; background: #fff8f8; color: #c0392b; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+  .bf-pumpe-btn:active { background: #fde8e8; }
+  .bf-pumpe-btn:disabled { opacity: 0.3; pointer-events: none; }
+  .bf-turn-badge { text-align: center; font-size: 14px; font-weight: 700; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; background: #f0ede8; color: #1a1a1a; }
+  .bf-winner-banner { background: #1a1a1a; color: #fff; text-align: center; border-radius: 10px; padding: 14px; margin-bottom: 14px; font-size: 16px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -450,14 +483,17 @@
 </div>
 
 <div class="topbar">
-  <div id="topbar-brand" style="display:flex;align-items:center;gap:10px;"><img src="data:image/png;base64,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" style="height:36px;width:36px;border-radius:6px;object-fit:contain;" alt="BB" id="topbar-logo-img"><div id="topbar-logo-hb" style="display:none;width:36px;height:36px;border-radius:6px;background:#1a3575;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;letter-spacing:-1px;">HB</div><div id="topbar-logo-custom" style="display:none;width:36px;height:36px;border-radius:6px;background:#7c4daa;align-items:center;justify-content:center;font-size:18px;">✏️</div><div><div id="topbar-club-name" style="font-size:15px;font-weight:700;line-height:1.15;">Blackout Boys</div><div style="font-size:10px;color:#888;font-weight:500;letter-spacing:0.04em;">KEGEL-STRAFEN</div></div></div>
+  <div id="topbar-brand" style="display:flex;align-items:center;gap:10px;"><img src="data:image/png;base64,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" style="height:36px;width:36px;border-radius:6px;object-fit:contain;" alt="BB" id="topbar-logo-img"><div id="topbar-logo-hb" style="display:none;width:36px;height:36px;border-radius:6px;background:#1a3575;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#fff;letter-spacing:-1px;">HB</div><div id="topbar-logo-custom" style="display:none;width:36px;height:36px;border-radius:6px;background:#7c4daa;align-items:center;justify-content:center;font-size:18px;">✏️</div><div><div id="topbar-club-name" style="font-size:15px;font-weight:700;line-height:1.15;">Blackout Boys</div><div style="font-size:10px;color:#888;font-weight:500;letter-spacing:0.04em;">KEGEL-STRAFEN</div><div id="topbar-datum" onclick="openDatumPicker()" style="font-size:11px;color:#aaa;font-weight:500;margin-top:2px;cursor:pointer;display:flex;align-items:center;gap:3px;"><span id="topbar-datum-text"></span><span style="font-size:10px;">✏️</span></div></div></div></div>
   <div class="topbar-actions">
     <button class="btn" onclick="switchClub()" style="font-size:11px;padding:5px 9px;">⇄ Club</button>
+    <button class="btn" id="btn-xlsx" onclick="exportExcel()">Excel</button>
     <button class="btn" id="btn-pdf" onclick="exportPDF()">PDF</button>
     <button class="btn" onclick="openSettings()">Einstellungen</button>
     <button class="btn btn-danger" onclick="confirmReset()">Reset</button>
   </div>
 </div>
+
+<input type="date" id="datum-input" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" onchange="setDatum(this.value)">
 
 <div class="tabs">
   <div class="tab active" onclick="showTab('allgemein')">Allgemein</div>
@@ -543,6 +579,7 @@ const CLUBS = {
 
 let state = {
   selectedClub: null,
+  datum: null,
   spieler: [],
   anwesend: [],
   spiele: [
@@ -612,6 +649,8 @@ let state = {
     penaltiesApplied: false,
     lastReset: [],    // [{ name, reason }] reset on last throw
   },
+  vierGewinnt: { open: false, teamName1: 'Team 1', teamName2: 'Team 2', team1: [], team2: [], currentTeam: 0, board: Array.from({length:9}, () => new Array(9).fill(null)), winner: null, winCells: [], lastDrop: null },
+  busfahren: { open: false, phase: 'assignment', assignments: {}, currentAssignIdx: 0, buses: {}, currentThrowIdx: 0, winner: null, log: [] },
   strafen: {
     allgemein: [
       {name:'Glas umwerfen', coins:1.0},
@@ -641,6 +680,30 @@ let state = {
   },
   counts: {}
 };
+
+function getExportDate() {
+  if (state.datum) {
+    const [y,m,d] = state.datum.split('-');
+    return `${d}.${m}.${y}`;
+  }
+  return new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function updateDatumDisplay() {
+  const el = document.getElementById('topbar-datum-text');
+  if (el) el.textContent = state.datum ? getExportDate() : new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function openDatumPicker() {
+  const input = document.getElementById('datum-input');
+  if (!input) return;
+  if (state.datum) input.value = state.datum;
+  else { const t = new Date(); input.value = t.toISOString().slice(0,10); }
+  input.showPicker ? input.showPicker() : input.click();
+}
+function setDatum(val) {
+  state.datum = val || null;
+  updateDatumDisplay();
+  save();
+}
 
 function key(s, group, st) { return s + '|' + group + '|' + st; }
 function getCount(s, g, st) { return state.counts[key(s,g,st)] || 0; }
@@ -715,6 +778,8 @@ function toggleAnwesend(s) {
     state.abräumen.team2 = state.abräumen.team2.filter(p => p !== s);
     state.bis100.team1 = state.bis100.team1.filter(p => p !== s);
     state.bis100.team2 = state.bis100.team2.filter(p => p !== s);
+    state.vierGewinnt.team1 = state.vierGewinnt.team1.filter(p => p !== s);
+    state.vierGewinnt.team2 = state.vierGewinnt.team2.filter(p => p !== s);
   } else {
     state.anwesend.push(s);
   }
@@ -832,6 +897,7 @@ function renderAll() {
   renderTable('allgemein');
   renderTable('kegel');
   renderSummary();
+  updateDatumDisplay();
 }
 
 function showTab(name) {
@@ -913,6 +979,8 @@ function renderSpiele() {
   html += renderTagNachtCard();
   html += renderBergTalCard();
   html += renderMadnCard();
+  html += renderVierGewinntCard();
+  html += renderBusfahrenCard();
   html += `<div class="add-game-card" onclick="openAddGame()"><span style="font-size:20px;font-weight:300;">+</span> Spiel hinzufügen</div>`;
   c.innerHTML = html;
 }
@@ -2413,6 +2481,318 @@ function confirmReset() {
   }
 }
 
+// ── 4 Gewinnt ─────────────────────────────────────────────────
+function renderVierGewinntCard() {
+  const vg = state.vierGewinnt;
+  const n1 = vg.teamName1||'Team 1', n2 = vg.teamName2||'Team 2';
+  const aktiv = state.spieler.filter(s => state.anwesend.includes(s));
+
+  let boardCells = '';
+  for (let row=8; row>=0; row--) {
+    for (let col=0; col<9; col++) {
+      const val = vg.board[col][row];
+      const isWin = vg.winCells.some(wc => wc.col===col && wc.row===row);
+      const cls = isWin ? 'win-cell' : val===0 ? 't1' : val===1 ? 't2' : '';
+      boardCells += '<div class="vg-cell '+cls+'"></div>';
+    }
+  }
+
+  let colBtns = '';
+  for (let col=0; col<9; col++) {
+    const full = vg.board[col].every(c => c!==null);
+    const dis = full || vg.winner!==null;
+    colBtns += '<button class="vg-col-btn"'+(dis?' disabled':'')+' onclick="vgDrop('+col+')">'+(col+1)+'</button>';
+  }
+
+  const playerChips = aktiv.map(s => {
+    const cls = vg.team1.includes(s)?'chip-team1':vg.team2.includes(s)?'chip-team2':'chip-unassigned';
+    return '<span class="tanne-player-chip '+cls+'" onclick="vgTogglePlayer(\''+esc(s)+'\')" style="cursor:pointer;"><div class="avatar" style="background:'+avatarColor(s)+'">'+initials(s)+'</div>'+s.trim()+'</span>';
+  }).join('');
+
+  const t1Chips = vg.team1.map(s => '<span class="tanne-player-chip chip-team1" onclick="vgTogglePlayer(\''+esc(s)+'\')"><div class="avatar" style="background:'+avatarColor(s)+'">'+initials(s)+'</div>'+s.trim()+'</span>').join('') || '<div style="font-size:12px;color:#bbb;padding:4px 0;">–</div>';
+  const t2Chips = vg.team2.map(s => '<span class="tanne-player-chip chip-team2" onclick="vgTogglePlayer(\''+esc(s)+'\')"><div class="avatar" style="background:'+avatarColor(s)+'">'+initials(s)+'</div>'+s.trim()+'</span>').join('') || '<div style="font-size:12px;color:#bbb;padding:4px 0;">–</div>';
+
+  const ctName = vg.currentTeam===0 ? n1 : n2;
+  const ctCls  = vg.currentTeam===0 ? 't1' : 't2';
+
+  let statusHtml = '';
+  if (vg.winner===null && aktiv.length>=2) {
+    statusHtml = '<div class="vg-turn-badge '+ctCls+'">🎳 '+esc(ctName)+' ist dran</div>';
+  } else if (vg.winner===-1) {
+    statusHtml = '<div class="vg-winner-banner">🤝 Unentschieden!</div>';
+  } else if (vg.winner!==null) {
+    const wn = vg.winner===0 ? n1 : n2;
+    statusHtml = '<div class="vg-winner-banner">🏆 '+esc(wn)+' gewinnt!</div>';
+  }
+
+  const pumpeBtn = vg.winner===null ? '<div class="vg-pumpe-row"><button class="vg-pumpe-btn" onclick="vgPumpe()">💨 Pumpe — keine Münze, nächstes Team</button></div>' : '';
+
+  let hintHtml = '';
+  if (vg.winner===null && aktiv.length>=2) {
+    const myWins  = vgWinningCols(vg.board, vg.currentTeam);
+    const oppTeam = vg.currentTeam===0?1:0;
+    const oppWins = vgWinningCols(vg.board, oppTeam);
+    const oppName = vg.currentTeam===0 ? n2 : n1;
+    if (myWins.length>0) {
+      hintHtml += '<div class="vg-hint vg-hint-win">⚡ Jetzt gewinnen mit: <strong>'+myWins.join(', ')+'</strong></div>';
+    }
+    if (oppWins.length>0) {
+      hintHtml += '<div class="vg-hint vg-hint-danger">⚠️ '+esc(oppName)+' kann mit <strong>'+oppWins.join(', ')+'</strong> gewinnen!</div>';
+    }
+  }
+
+  return `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleVierGewinnt()">
+      <div><div class="spiel-title">🔵 4 Gewinnt</div><div class="spiel-meta">2 Teams · 4 in einer Reihe gewinnt</div></div>
+      <span class="spiel-chevron${vg.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${vg.open?' open':''}">
+      <div class="spiel-desc">Teilt die Spieler auf 2 Teams auf. Nach jedem Wurf tippt ihr die geworfene Zahl (1–9) — die Münze eures Teams fällt in die entsprechende Spalte. Wer zuerst <strong>4 Münzen in einer Reihe</strong> verbindet (horizontal, vertikal oder diagonal), gewinnt! Bei einer <strong>Pumpe</strong> fällt keine Münze und das andere Team ist dran.</div>
+      <div class="team-names-row">
+        <div class="team-name-field">
+          <span class="team-name-label t1">Team 1</span>
+          <input class="team-name-input t1" type="text" maxlength="20" value="${esc(n1)}" oninput="state.vierGewinnt.teamName1=this.value;renderSpiele()" placeholder="Team 1">
+        </div>
+        <div class="team-name-field">
+          <span class="team-name-label t2">Team 2</span>
+          <input class="team-name-input t2" type="text" maxlength="20" value="${esc(n2)}" oninput="state.vierGewinnt.teamName2=this.value;renderSpiele()" placeholder="Team 2">
+        </div>
+      </div>
+      <div class="tanne-players-row">${playerChips}</div>
+      <div class="tanne-teams" style="margin-bottom:10px;">
+        <div class="tanne-team-col"><div class="tanne-team-label tanne-team1-label">${esc(n1)} (${vg.team1.length})</div>${t1Chips}</div>
+        <div class="tanne-team-col"><div class="tanne-team-label tanne-team2-label">${esc(n2)} (${vg.team2.length})</div>${t2Chips}</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn" style="flex:1;" onclick="vgRandomTeams()">🎲 Zufällig aufteilen</button>
+      </div>
+      ${statusHtml}
+      ${hintHtml}
+      <div class="vg-wrap">
+        <div class="vg-board">${boardCells}</div>
+        <div class="vg-col-btns">${colBtns}</div>
+      </div>
+      ${pumpeBtn}
+      <div class="spiel-actions" style="margin-top:12px;">
+        <button class="btn btn-danger" onclick="vgReset()">Zurücksetzen</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleVierGewinnt() {
+  state.vierGewinnt.open = !state.vierGewinnt.open;
+  renderSpiele();
+}
+
+function vgTogglePlayer(name) {
+  const vg = state.vierGewinnt;
+  if (vg.team1.includes(name)) { vg.team1 = vg.team1.filter(p=>p!==name); vg.team2.push(name); }
+  else if (vg.team2.includes(name)) { vg.team2 = vg.team2.filter(p=>p!==name); }
+  else { vg.team1.push(name); }
+  renderSpiele();
+}
+
+function vgRandomTeams() {
+  const vg = state.vierGewinnt;
+  const aktiv = state.spieler.filter(s => state.anwesend.includes(s));
+  const sh = [...aktiv].sort(()=>Math.random()-0.5);
+  vg.team1 = sh.filter((_,i)=>i%2===0);
+  vg.team2 = sh.filter((_,i)=>i%2===1);
+  renderSpiele();
+}
+
+function vgWinningCols(board, team) {
+  const cols = [];
+  for (let col=0; col<9; col++) {
+    let dropRow = -1;
+    for (let r=0; r<9; r++) { if (board[col][r]===null) { dropRow=r; break; } }
+    if (dropRow===-1) continue;
+    board[col][dropRow] = team;
+    const win = vgCheckWin(board, col, dropRow, team);
+    board[col][dropRow] = null;
+    if (win) cols.push(col+1); // 1-indexed
+  }
+  return cols;
+}
+
+function vgCheckWin(board, lc, lr, team) {
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (const [dc,dr] of dirs) {
+    const cells = [{col:lc,row:lr}];
+    for (let i=1;i<4;i++){const c=lc+dc*i,r=lr+dr*i;if(c<0||c>8||r<0||r>8||board[c][r]!==team)break;cells.push({col:c,row:r});}
+    for (let i=1;i<4;i++){const c=lc-dc*i,r=lr-dr*i;if(c<0||c>8||r<0||r>8||board[c][r]!==team)break;cells.push({col:c,row:r});}
+    if (cells.length>=4) return cells;
+  }
+  return null;
+}
+
+function vgDrop(col) {
+  const vg = state.vierGewinnt;
+  if (vg.winner!==null) return;
+  let dropRow = -1;
+  for (let r=0;r<9;r++) { if(vg.board[col][r]===null){dropRow=r;break;} }
+  if (dropRow===-1) return;
+  vg.board[col][dropRow] = vg.currentTeam;
+  vg.lastDrop = {col, row:dropRow};
+  const wc = vgCheckWin(vg.board, col, dropRow, vg.currentTeam);
+  if (wc) {
+    vg.winner = vg.currentTeam; vg.winCells = wc;
+    applyGamePenalty();
+  } else {
+    const draw = vg.board.every(c=>c.every(cell=>cell!==null));
+    if (draw) { vg.winner=-1; vg.winCells=[]; }
+    else vg.currentTeam = vg.currentTeam===0?1:0;
+  }
+  renderSpiele();
+}
+
+function vgPumpe() {
+  const vg = state.vierGewinnt;
+  if (vg.winner!==null) return;
+  vg.lastDrop = null;
+  vg.currentTeam = vg.currentTeam===0?1:0;
+  renderSpiele();
+}
+
+function vgReset() {
+  const vg = state.vierGewinnt;
+  vg.board = Array.from({length:9},()=>new Array(9).fill(null));
+  vg.currentTeam=0; vg.winner=null; vg.winCells=[]; vg.lastDrop=null;
+  renderSpiele();
+}
+
+// ── Busfahren ─────────────────────────────────────────────────
+const BF_COLORS = ['#888','#e74c3c','#e67e22','#c9a227','#27ae60','#16a085','#2980b9','#8e44ad','#e91e8c','#2c3e50'];
+
+function renderBusfahrenCard() {
+  const bf = state.busfahren;
+  const aktiv = state.spieler.filter(s => state.anwesend.includes(s));
+  const bfc = n => BF_COLORS[n] || '#888';
+
+  let bodyHtml = '';
+
+  if (bf.phase === 'assignment') {
+    const currentPlayer = aktiv[bf.currentAssignIdx];
+
+    let assignedHtml = '';
+    for (let i=0; i<bf.currentAssignIdx && i<aktiv.length; i++) {
+      const p = aktiv[i], bn = bf.assignments[p], c = bfc(bn);
+      assignedHtml += '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0ede8;">'
+        +'<div class="avatar" style="background:'+avatarColor(p)+'">'+initials(p)+'</div>'
+        +'<span style="flex:1;font-size:13px;font-weight:600;">'+p.trim()+'</span>'
+        +'<span style="font-size:12px;font-weight:700;background:'+c+';color:#fff;padding:3px 10px;border-radius:8px;">🚌 Bus '+bn+'</span>'
+        +'</div>';
+    }
+
+    let numBtns = '';
+    for (let i=1; i<=9; i++) numBtns += '<button class="bf-num-btn" onclick="bfAssign('+i+')" '+(!currentPlayer?'disabled':'')+'>'+i+'</button>';
+
+    bodyHtml = '<div style="background:#f5f4f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:center;">'
+      +'<div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">'+(currentPlayer?currentPlayer.trim():'Alle zugewiesen')+'</div>'
+      +'<div style="font-size:13px;color:#888;">'+(currentPlayer?'würfelt jetzt — Zahl = Busnummer':'Zuweisung abgeschlossen')+'</div>'
+      +'</div>'
+      +(assignedHtml?'<div style="margin-bottom:12px;">'+assignedHtml+'</div>':'')
+      +'<div class="bf-numpad">'+numBtns+'</div>'
+      +'<button class="bf-pumpe-btn" onclick="bfAssign(0)" '+(!currentPlayer?'disabled':'')+'>💨 Pumpe (0) → Bus 0</button>'
+      +'<div style="font-size:12px;color:#bbb;text-align:center;">'+bf.currentAssignIdx+' von '+aktiv.length+' zugewiesen</div>';
+  } else {
+    const busNums = Object.keys(bf.buses).map(Number).sort((a,b)=>a-b);
+
+    let busCards = '';
+    for (const bn of busNums) {
+      const bus = bf.buses[bn], c = bfc(bn), isWin = bf.winner===bn;
+      let tires = '';
+      for (let i=0; i<6; i++) tires += '<div style="width:28px;height:28px;border-radius:50%;border:2.5px solid '+c+';background:'+(i<bus.tires?c:'transparent')+';opacity:'+(i<bus.tires?'1':'0.25')+';flex-shrink:0;"></div>';
+      const chips = bus.players.map(p=>
+        '<span class="tanne-player-chip" style="background:'+c+'20;border-color:'+c+'55;color:#222;">'
+        +'<div class="avatar" style="background:'+avatarColor(p)+'">'+initials(p)+'</div>'+p.trim()+'</span>'
+      ).join('');
+      busCards += '<div style="border-radius:12px;border:2px solid '+c+';background:'+(isWin?c+'18':'#fff')+';padding:12px 14px;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+        +'<div style="width:44px;height:44px;border-radius:10px;background:'+c+';display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">'+bn+'</div>'
+        +'<div style="flex:1;"><div style="font-size:15px;font-weight:700;color:'+c+';">Bus '+bn+(isWin?' 🏆':'')+'</div>'
+        +'<div style="font-size:12px;color:#888;">'+bus.tires+' / 6 Reifen</div></div>'
+        +'</div>'
+        +'<div style="display:flex;gap:5px;margin-bottom:8px;">'+tires+'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'+chips+'</div>'
+        +'</div>';
+    }
+
+    let statusHtml = '';
+    if (bf.phase==='done') {
+      const wn=bf.winner, wp=(bf.buses[wn]?.players||[]).join(', ');
+      statusHtml = '<div class="bf-winner-banner">🏆 Bus '+wn+' gewinnt!'+(wp?' · '+wp:'')+'</div>';
+    } else {
+      const cp = aktiv.length>0 ? aktiv[bf.currentThrowIdx%aktiv.length] : null;
+      statusHtml = '<div class="bf-turn-badge">🎳 '+(cp?cp.trim():'–')+' ist dran</div>';
+    }
+
+    let numBtns = '';
+    for (let i=1; i<=9; i++) numBtns += '<button class="bf-num-btn" '+(bf.phase==='done'?'disabled':'')+' onclick="bfThrow('+i+')">'+i+'</button>';
+
+    const lastLog = bf.log.length>0 ? '<div style="font-size:12px;color:#999;text-align:center;padding:4px 0 2px;">'+bf.log[bf.log.length-1]+'</div>' : '';
+
+    bodyHtml = statusHtml+busCards+'<div class="bf-numpad">'+numBtns+'</div>'
+      +'<button class="bf-pumpe-btn" '+(bf.phase==='done'?'disabled':'')+' onclick="bfThrow(0)">💨 Pumpe</button>'+lastLog;
+  }
+
+  return `<div class="spiel-card">
+    <div class="spiel-header" onclick="toggleBusfahren()">
+      <div><div class="spiel-title">🚌 Busfahren</div><div class="spiel-meta">Alle Spieler · Reihum · Erster Bus mit 6 Reifen gewinnt</div></div>
+      <span class="spiel-chevron${bf.open?' open':''}">&#8964;</span>
+    </div>
+    <div class="spiel-body${bf.open?' open':''}">
+      <div class="spiel-desc">Runde 1 — Busbesetzung: Jeder wirft einmal, die Zahl bestimmt seine Busnummer (mehrere können im selben Bus sein). Danach: egal wer die Zahl wirft — der dazugehörige Bus bekommt einen <strong>Reifen</strong>. Wer zuerst <strong>6 Reifen</strong> hat, gewinnt!</div>
+      ${bodyHtml}
+      <div class="spiel-actions">
+        <button class="btn btn-danger" onclick="bfReset()">Zurücksetzen</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleBusfahren() { state.busfahren.open=!state.busfahren.open; renderSpiele(); }
+
+function bfAssign(num) {
+  const bf=state.busfahren;
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  const player=aktiv[bf.currentAssignIdx];
+  if(!player) return;
+  bf.assignments[player]=num;
+  if(!bf.buses[num]) bf.buses[num]={tires:0,players:[]};
+  bf.buses[num].players.push(player);
+  bf.currentAssignIdx++;
+  if(bf.currentAssignIdx>=aktiv.length){bf.phase='game';bf.currentThrowIdx=0;}
+  renderSpiele();
+}
+
+function bfThrow(num) {
+  const bf=state.busfahren;
+  if(bf.phase!=='game') return;
+  const aktiv=state.spieler.filter(s=>state.anwesend.includes(s));
+  if(!aktiv.length) return;
+  const player=aktiv[bf.currentThrowIdx%aktiv.length];
+  let msg='';
+  if(bf.buses[num]!==undefined){
+    bf.buses[num].tires++;
+    msg=player.trim()+' wirft '+num+' → Bus '+num+': '+bf.buses[num].tires+'/6 Reifen';
+    if(bf.buses[num].tires>=6){bf.winner=num;bf.phase='done';applyGamePenalty();}
+  } else {
+    msg=player.trim()+' wirft '+num+' — kein Bus '+num;
+  }
+  bf.log.push(msg); if(bf.log.length>5) bf.log.shift();
+  if(bf.phase==='game') bf.currentThrowIdx++;
+  renderSpiele();
+}
+
+function bfReset() {
+  const bf=state.busfahren;
+  bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0;
+  bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[];
+  renderSpiele();
+}
+
 // ── Club Selection ────────────────────────────────────────────
 function resetAllGames() {
   state.spiele.forEach(g => { g.scores = {}; g.showResult = false; g.penaltiesApplied = false; });
@@ -2430,6 +2810,10 @@ function resetAllGames() {
   state.bergtal.scores = {}; state.bergtal.showResult = false; state.bergtal.penaltiesApplied = false;
   state.madn.order = []; state.madn.scores = {}; state.madn.currentTurn = 0;
   state.madn.winner = null; state.madn.penaltiesApplied = false; state.madn.lastReset = [];
+  const vg = state.vierGewinnt;
+  vg.board = Array.from({length:9}, () => new Array(9).fill(null));
+  vg.currentTeam = 0; vg.winner = null; vg.winCells = []; vg.lastDrop = null; vg.team1 = []; vg.team2 = [];
+  const bf = state.busfahren; bf.phase='assignment'; bf.assignments={}; bf.currentAssignIdx=0; bf.buses={}; bf.currentThrowIdx=0; bf.winner=null; bf.log=[];
   state.counts = {};
 }
 
@@ -2510,9 +2894,11 @@ function switchClub() {
 
 // Show club selector on load
 document.getElementById('club-selector').style.display = 'flex';
+updateDatumDisplay();
 
 renderAll();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -2525,7 +2911,7 @@ function exportPDF() {
     try {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const date = new Date().toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+      const date = getExportDate();
       const pageW = doc.internal.pageSize.getWidth();
 
       // ── Helper: draw one penalty table ──────────────────────
@@ -2745,6 +3131,75 @@ function exportPDF() {
       console.error(e);
     }
     btn.textContent = 'PDF';
+    btn.disabled = false;
+  }, 50);
+}
+
+function exportExcel() {
+  const btn = document.getElementById('btn-xlsx');
+  btn.textContent = '...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
+      const date = getExportDate();
+
+      // ── Helper: build a sheet for one penalty group ──────────
+      function buildSheet(group) {
+        const strafen = state.strafen[group];
+        const rows = [];
+
+        // Row 1: Header — Name | Strafe1 | Strafe2 | ... | Gesamt
+        rows.push(['Name', ...strafen.map(st => st.name.replace(/\n/g,' ')), 'Gesamt (€)']);
+
+        // Row 2: Prices
+        rows.push(['Preis (€)', ...strafen.map(st => st.coins), '']);
+
+        // Player rows
+        for (const s of state.spieler) {
+          const counts = strafen.map(st => getCount(s, group, st.name) || 0);
+          const total = strafen.reduce((sum, st, i) => sum + counts[i] * st.coins, 0);
+          rows.push([s, ...counts, parseFloat(total.toFixed(2))]);
+        }
+
+        // Totals row
+        const colTotals = strafen.map((st, i) => state.spieler.reduce((sum, s) => sum + (getCount(s, group, st.name) || 0), 0));
+        const grandTotal = state.spieler.reduce((sum, s) => sum + strafen.reduce((s2, st) => s2 + getCount(s, group, st.name) * st.coins, 0), 0);
+        rows.push(['Gesamt', ...colTotals, parseFloat(grandTotal.toFixed(2))]);
+
+        return XLSX.utils.aoa_to_sheet(rows);
+      }
+
+      // ── Sheet 1: Allgemeine Strafen ──────────────────────────
+      XLSX.utils.book_append_sheet(wb, buildSheet('allgemein'), 'Allgemeine Strafen');
+
+      // ── Sheet 2: Kegel-Strafen ──────────────────────────────
+      XLSX.utils.book_append_sheet(wb, buildSheet('kegel'), 'Kegel-Strafen');
+
+      // ── Sheet 3: Zusammenfassung ────────────────────────────
+      const summRows = [];
+      summRows.push(['Spieler', 'Allgemein (€)', 'Kegel (€)', 'Gesamt Strafen (€)', 'Anwesend']);
+      for (const s of state.spieler) {
+        const allg = state.strafen.allgemein.reduce((sum, st) => sum + getCount(s,'allgemein',st.name) * st.coins, 0);
+        const kegel = state.strafen.kegel.reduce((sum, st) => sum + getCount(s,'kegel',st.name) * st.coins, 0);
+        const total = allg + kegel;
+        summRows.push([s, parseFloat(allg.toFixed(2)), parseFloat(kegel.toFixed(2)), parseFloat(total.toFixed(2)), state.anwesend.includes(s) ? 'Ja' : 'Nein']);
+      }
+      // Grand total row
+      const gAllg = state.spieler.reduce((sum, s) => sum + state.strafen.allgemein.reduce((s2, st) => s2 + getCount(s,'allgemein',st.name)*st.coins, 0), 0);
+      const gKegel = state.spieler.reduce((sum, s) => sum + state.strafen.kegel.reduce((s2, st) => s2 + getCount(s,'kegel',st.name)*st.coins, 0), 0);
+      summRows.push(['Gesamt', parseFloat(gAllg.toFixed(2)), parseFloat(gKegel.toFixed(2)), parseFloat((gAllg+gKegel).toFixed(2)), '']);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summRows), 'Zusammenfassung');
+
+      const filename = `kegel-strafen-${date.replace(/\./g,'-')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    } catch(e) {
+      alert('Excel-Export fehlgeschlagen. Bitte stelle sicher, dass du online bist (für die erste Nutzung).');
+      console.error(e);
+    }
+    btn.textContent = 'Excel';
     btn.disabled = false;
   }, 50);
 }
